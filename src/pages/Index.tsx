@@ -1,8 +1,8 @@
 import React from 'react';
-import Dashboard from '@/components/Dashboard';
+import ConstructionTracker from '@/components/ConstructionTracker';
 
 const Index = () => {
-  return <Dashboard />;
+  return <ConstructionTracker />;
 };
 
 export default Index;
