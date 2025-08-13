@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -35,6 +35,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { Purchase } from '@/types/construction';
 
@@ -46,8 +47,9 @@ const purchaseSchema = z.object({
   description: z.string().min(1, 'Description is required'),
   quantity: z.number().min(0.01, 'Quantity must be greater than 0'),
   unitPrice: z.number().min(0.01, 'Unit price must be greater than 0'),
-  unit: z.string().optional(),
+  units: z.array(z.string()).min(1, 'At least one unit must be selected'),
   partner: z.string().optional(),
+  distributeEvenly: z.boolean().default(false),
 });
 
 type PurchaseFormData = z.infer<typeof purchaseSchema>;
@@ -55,28 +57,40 @@ type PurchaseFormData = z.infer<typeof purchaseSchema>;
 interface PurchaseFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (purchase: Omit<Purchase, 'id' | 'totalCost'>) => void;
+  onSubmit: (purchase: Omit<Purchase, 'id' | 'totalCost'> & { units: string[], distributeEvenly: boolean }) => void;
   units: Array<{ id: string; name: string }>;
   partners: Array<{ id: string; name: string }>;
 }
 
 const categories = [
-  'Materials',
-  'Labor',
-  'Equipment',
-  'Permits',
-  'Utilities',
-  'Transportation',
-  'Contractor',
+  'Plumbing',
+  'Bathroom',
+  'Bedroom',
+  'Kitchen',
+  'Living Room',
+  'Flooring',
+  'Electrical',
+  'HVAC',
+  'Roofing',
+  'Painting',
+  'Doors & Windows',
+  'Insulation',
+  'Foundation',
+  'Exterior',
   'Other',
 ];
 
 export function PurchaseForm({ open, onOpenChange, onSubmit, units, partners }: PurchaseFormProps) {
+  const [selectedUnits, setSelectedUnits] = useState<string[]>([]);
+  const [selectAllUnits, setSelectAllUnits] = useState(false);
+  
   const form = useForm<PurchaseFormData>({
     resolver: zodResolver(purchaseSchema),
     defaultValues: {
       quantity: 1,
       unitPrice: 0,
+      units: [],
+      distributeEvenly: false,
     },
   });
 
@@ -87,11 +101,14 @@ export function PurchaseForm({ open, onOpenChange, onSubmit, units, partners }: 
       description: data.description,
       quantity: data.quantity,
       unitPrice: data.unitPrice,
-      unit: data.unit,
+      units: data.units,
       partner: data.partner,
       receipt: '',
+      distributeEvenly: data.distributeEvenly,
     });
     form.reset();
+    setSelectedUnits([]);
+    setSelectAllUnits(false);
     onOpenChange(false);
   };
 
@@ -231,27 +248,85 @@ export function PurchaseForm({ open, onOpenChange, onSubmit, units, partners }: 
               />
             </div>
 
+            {/* Unit Selection */}
+            <FormItem>
+              <FormLabel>Apply to Units</FormLabel>
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="select-all"
+                    checked={selectAllUnits}
+                    onCheckedChange={(checked) => {
+                      setSelectAllUnits(!!checked);
+                      if (checked) {
+                        const allUnitIds = units.map(u => u.id);
+                        setSelectedUnits(allUnitIds);
+                        form.setValue('units', allUnitIds);
+                      } else {
+                        setSelectedUnits([]);
+                        form.setValue('units', []);
+                      }
+                    }}
+                  />
+                  <label htmlFor="select-all" className="text-sm font-medium">
+                    Apply to all units
+                  </label>
+                </div>
+                
+                {!selectAllUnits && (
+                  <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto">
+                    {units.map((unit) => (
+                      <div key={unit.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={unit.id}
+                          checked={selectedUnits.includes(unit.id)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              const newSelection = [...selectedUnits, unit.id];
+                              setSelectedUnits(newSelection);
+                              form.setValue('units', newSelection);
+                            } else {
+                              const newSelection = selectedUnits.filter(id => id !== unit.id);
+                              setSelectedUnits(newSelection);
+                              form.setValue('units', newSelection);
+                            }
+                          }}
+                        />
+                        <label htmlFor={unit.id} className="text-sm">
+                          {unit.name}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {form.formState.errors.units && (
+                  <p className="text-sm text-destructive">
+                    {form.formState.errors.units.message}
+                  </p>
+                )}
+              </div>
+            </FormItem>
+
             <FormField
               control={form.control}
-              name="unit"
+              name="distributeEvenly"
               render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Unit (Optional)</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select unit" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {units.map((unit) => (
-                        <SelectItem key={unit.id} value={unit.id}>
-                          {unit.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel>
+                      Distribute evenly across selected units
+                    </FormLabel>
+                    <p className="text-xs text-muted-foreground">
+                      Split quantity and cost equally among selected units
+                    </p>
+                  </div>
                 </FormItem>
               )}
             />

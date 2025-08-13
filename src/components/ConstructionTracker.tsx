@@ -86,8 +86,8 @@ export default function ConstructionTracker() {
       {
         id: '1',
         date: '2024-08-10',
-        category: 'Materials',
-        description: 'Ceramic tiles for bathroom',
+        category: 'Bathroom',
+        description: 'Ceramic tiles for bathroom flooring',
         quantity: 20,
         unitPrice: 250,
         totalCost: 5000,
@@ -97,8 +97,8 @@ export default function ConstructionTracker() {
       {
         id: '2',
         date: '2024-08-12',
-        category: 'Labor',
-        description: 'Plumbing installation',
+        category: 'Plumbing',
+        description: 'Bathroom fixtures installation',
         quantity: 1,
         unitPrice: 3500,
         totalCost: 3500,
@@ -146,12 +146,22 @@ export default function ConstructionTracker() {
 
   // Budget categories calculation
   const budgetCategories: BudgetCategory[] = [
-    'Materials', 'Labor', 'Equipment', 'Permits', 'Utilities', 'Transportation', 'Contractor', 'Other'
+    'Plumbing', 'Bathroom', 'Bedroom', 'Kitchen', 'Living Room', 'Flooring', 
+    'Electrical', 'HVAC', 'Roofing', 'Painting', 'Doors & Windows', 'Insulation', 
+    'Foundation', 'Exterior', 'Other'
   ].map(category => {
     const spentAmount = purchases
       .filter(p => p.category === category)
       .reduce((sum, p) => sum + p.totalCost, 0);
-    const budgetAmount = totalBudget * (category === 'Materials' ? 0.4 : category === 'Labor' ? 0.3 : 0.05);
+    const budgetAmount = totalBudget * (
+      category === 'Bathroom' ? 0.15 : 
+      category === 'Kitchen' ? 0.15 : 
+      category === 'Bedroom' ? 0.12 :
+      category === 'Plumbing' ? 0.10 :
+      category === 'Electrical' ? 0.08 :
+      category === 'Flooring' ? 0.10 :
+      0.05
+    );
     
     return {
       id: category.toLowerCase(),
@@ -163,18 +173,55 @@ export default function ConstructionTracker() {
   });
 
   // Handlers
-  const handleAddPurchase = (purchaseData: Omit<Purchase, 'id' | 'totalCost'>) => {
-    const newPurchase: Purchase = {
-      ...purchaseData,
-      id: Date.now().toString(),
-      totalCost: purchaseData.quantity * purchaseData.unitPrice
-    };
+  const handleAddPurchase = (purchaseData: Omit<Purchase, 'id' | 'totalCost'> & { units: string[], distributeEvenly: boolean }) => {
+    const totalCost = purchaseData.quantity * purchaseData.unitPrice;
     
-    setPurchases(prev => [newPurchase, ...prev]);
-    toast({
-      title: 'Purchase Added',
-      description: `Added ${purchaseData.description} for EGP ${newPurchase.totalCost.toLocaleString()}`,
-    });
+    if (purchaseData.distributeEvenly && purchaseData.units.length > 1) {
+      // Split into multiple purchases, one per unit
+      const quantityPerUnit = purchaseData.quantity / purchaseData.units.length;
+      const costPerUnit = totalCost / purchaseData.units.length;
+      
+      const newPurchases: Purchase[] = purchaseData.units.map(unitId => ({
+        id: `${Date.now()}-${unitId}`,
+        date: purchaseData.date,
+        category: purchaseData.category,
+        description: `${purchaseData.description} (${quantityPerUnit} units)`,
+        quantity: quantityPerUnit,
+        unitPrice: purchaseData.unitPrice,
+        totalCost: costPerUnit,
+        unit: unitId,
+        partner: purchaseData.partner,
+        receipt: purchaseData.receipt,
+      }));
+      
+      setPurchases(prev => [...newPurchases, ...prev]);
+      
+      toast({
+        title: 'Purchase Added',
+        description: `Added ${purchaseData.description} to ${purchaseData.units.length} units for EGP ${totalCost.toLocaleString()} total`,
+      });
+    } else {
+      // Create single purchase for first selected unit or general
+      const newPurchase: Purchase = {
+        id: Date.now().toString(),
+        date: purchaseData.date,
+        category: purchaseData.category,
+        description: purchaseData.description,
+        quantity: purchaseData.quantity,
+        unitPrice: purchaseData.unitPrice,
+        totalCost: totalCost,
+        unit: purchaseData.units[0],
+        partner: purchaseData.partner,
+        receipt: purchaseData.receipt,
+      };
+      
+      setPurchases(prev => [newPurchase, ...prev]);
+      
+      toast({
+        title: 'Purchase Added',
+        description: `Added ${purchaseData.description} for EGP ${totalCost.toLocaleString()}`,
+      });
+    }
   };
 
   const handleAddUnit = (unitData: Omit<Unit, 'id' | 'actualCost'>) => {

@@ -39,13 +39,20 @@ export function PurchasesTable({ purchases, units, partners }: PurchasesTablePro
 
   const getCategoryColor = (category: string) => {
     const colors = {
-      'Materials': 'bg-blue-100 text-blue-800',
-      'Labor': 'bg-green-100 text-green-800',
-      'Equipment': 'bg-purple-100 text-purple-800',
-      'Permits': 'bg-yellow-100 text-yellow-800',
-      'Utilities': 'bg-orange-100 text-orange-800',
-      'Transportation': 'bg-cyan-100 text-cyan-800',
-      'Contractor': 'bg-red-100 text-red-800',
+      'Plumbing': 'bg-blue-100 text-blue-800',
+      'Bathroom': 'bg-purple-100 text-purple-800',
+      'Bedroom': 'bg-green-100 text-green-800',
+      'Kitchen': 'bg-yellow-100 text-yellow-800',
+      'Living Room': 'bg-orange-100 text-orange-800',
+      'Flooring': 'bg-indigo-100 text-indigo-800',
+      'Electrical': 'bg-red-100 text-red-800',
+      'HVAC': 'bg-cyan-100 text-cyan-800',
+      'Roofing': 'bg-pink-100 text-pink-800',
+      'Painting': 'bg-teal-100 text-teal-800',
+      'Doors & Windows': 'bg-lime-100 text-lime-800',
+      'Insulation': 'bg-amber-100 text-amber-800',
+      'Foundation': 'bg-stone-100 text-stone-800',
+      'Exterior': 'bg-sky-100 text-sky-800',
       'Other': 'bg-gray-100 text-gray-800',
     };
     return colors[category as keyof typeof colors] || colors.Other;
