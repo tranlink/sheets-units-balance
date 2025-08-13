@@ -1,5 +1,4 @@
 import React from 'react';
-import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -10,11 +9,10 @@ import {
   AlertTriangle, 
   TrendingUp, 
   DollarSign,
-  LogOut
+  ExternalLink
 } from 'lucide-react';
 
 const Dashboard = () => {
-  const { user, signOut } = useAuth();
 
   const stats = [
     {
@@ -61,13 +59,16 @@ const Dashboard = () => {
           <div className="flex items-center gap-3">
             <Building2 className="h-8 w-8 text-primary" />
             <div>
-              <h1 className="text-2xl font-bold text-card-foreground">Construction Tracker</h1>
-              <p className="text-sm text-muted-foreground">Welcome back, {user?.user_metadata?.full_name || user?.email}</p>
+              <h1 className="text-2xl font-bold text-card-foreground">Construction Cost Tracker</h1>
+              <p className="text-sm text-muted-foreground">Track your Airbnb construction costs</p>
             </div>
           </div>
-          <Button onClick={signOut} variant="outline" size="sm">
-            <LogOut className="h-4 w-4 mr-2" />
-            Sign Out
+          <Button 
+            onClick={() => window.open('https://docs.google.com/spreadsheets/d/1example/copy', '_blank')}
+            variant="default"
+          >
+            <ExternalLink className="h-4 w-4 mr-2" />
+            Open Google Sheet Tool
           </Button>
         </div>
       </header>
@@ -148,14 +149,31 @@ const Dashboard = () => {
           </Card>
         </div>
 
-        {/* Coming Soon Notice */}
+        {/* Google Sheets Integration */}
         <Card>
-          <CardContent className="p-6 text-center">
-            <h3 className="text-lg font-semibold mb-2">Full Application Coming Soon</h3>
+          <CardContent className="p-6 text-center space-y-4">
+            <h3 className="text-lg font-semibold">Google Sheets Construction Cost Tracker</h3>
             <p className="text-muted-foreground">
-              This dashboard shows the planned interface. The complete construction cost tracking system with Google Sheets integration, 
-              purchase management, unit allocation, and partner settlement features will be implemented next.
+              Use our pre-built Google Sheets template to track construction costs, purchases, and partner settlements. 
+              Click the button above to copy the template to your Google Drive and start tracking immediately.
             </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+              <div className="text-center">
+                <Calculator className="h-8 w-8 text-primary mx-auto mb-2" />
+                <h4 className="font-medium">Cost Tracking</h4>
+                <p className="text-sm text-muted-foreground">Track all expenses by category and unit</p>
+              </div>
+              <div className="text-center">
+                <Building2 className="h-8 w-8 text-primary mx-auto mb-2" />
+                <h4 className="font-medium">Unit Management</h4>
+                <p className="text-sm text-muted-foreground">Organize costs by individual units</p>
+              </div>
+              <div className="text-center">
+                <Users className="h-8 w-8 text-primary mx-auto mb-2" />
+                <h4 className="font-medium">Partner Settlement</h4>
+                <p className="text-sm text-muted-foreground">Track partner contributions and balances</p>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
