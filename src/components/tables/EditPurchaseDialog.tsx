@@ -87,8 +87,8 @@ export function EditPurchaseDialog({
       description: purchase.description,
       quantity: purchase.quantity,
       unit_price: purchase.unitPrice,
-      unit_id: purchase.unit || '',
-      partner_id: purchase.partner_id || '',
+      unit_id: purchase.unit || 'none',
+      partner_id: purchase.partner_id || 'none',
     },
   });
 
@@ -100,8 +100,8 @@ export function EditPurchaseDialog({
       description: purchase.description,
       quantity: purchase.quantity,
       unit_price: purchase.unitPrice,
-      unit_id: purchase.unit || '',
-      partner_id: purchase.partner_id || '',
+      unit_id: purchase.unit || 'none',
+      partner_id: purchase.partner_id || 'none',
     });
   }, [purchase, form]);
 
@@ -112,8 +112,8 @@ export function EditPurchaseDialog({
       description: data.description,
       quantity: data.quantity,
       unit_price: data.unit_price,
-      unit_id: data.unit_id || undefined,
-      partner_id: data.partner_id || undefined,
+      unit_id: data.unit_id === 'none' ? undefined : data.unit_id,
+      partner_id: data.partner_id === 'none' ? undefined : data.partner_id,
     });
   };
 
@@ -266,7 +266,7 @@ export function EditPurchaseDialog({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="">General</SelectItem>
+                      <SelectItem value="none">General</SelectItem>
                       {units.map((unit) => (
                         <SelectItem key={unit.id} value={unit.id}>
                           {unit.name}
@@ -292,7 +292,7 @@ export function EditPurchaseDialog({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="">No Partner</SelectItem>
+                      <SelectItem value="none">No Partner</SelectItem>
                       {partners.map((partner) => (
                         <SelectItem key={partner.id} value={partner.id}>
                           {partner.name}
