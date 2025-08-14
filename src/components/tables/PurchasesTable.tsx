@@ -243,15 +243,20 @@ export function PurchasesTable({ purchases, units, partners, categories = [], on
                     {(onUpdatePurchase || onDeletePurchase) && (
                       <TableCell>
                         <div className="flex gap-2">
-                          {onUpdatePurchase && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setEditingPurchase(purchase)}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                          )}
+                           {onUpdatePurchase && (
+                             <Button
+                               variant="ghost"
+                               size="sm"
+                               onClick={(e) => {
+                                 e.preventDefault();
+                                 e.stopPropagation();
+                                 console.log('Edit button clicked for purchase:', purchase.id);
+                                 setEditingPurchase(purchase);
+                               }}
+                             >
+                               <Edit className="h-4 w-4" />
+                             </Button>
+                           )}
                           {onDeletePurchase && (
                             <Button
                               variant="ghost"
