@@ -12,14 +12,17 @@ import {
   DollarSign,
   Plus,
   BarChart3,
-  FileText
+  FileText,
+  UserPlus
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Purchase, Unit, Partner, BudgetCategory, Alert } from '@/types/construction';
 import { PurchaseForm } from '@/components/forms/PurchaseForm';
 import { UnitForm } from '@/components/forms/UnitForm';
+import { PartnerForm } from '@/components/forms/PartnerForm';
 import { PurchasesTable } from '@/components/tables/PurchasesTable';
 import { UnitsTable } from '@/components/tables/UnitsTable';
+import { PartnersTable } from '@/components/tables/PartnersTable';
 import { BudgetChart } from '@/components/charts/BudgetChart';
 
 export default function ConstructionTracker() {
@@ -32,6 +35,8 @@ export default function ConstructionTracker() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [showPurchaseForm, setShowPurchaseForm] = useState(false);
   const [showUnitForm, setShowUnitForm] = useState(false);
+  const [showPartnerForm, setShowPartnerForm] = useState(false);
+  const [editingPartner, setEditingPartner] = useState<Partner | undefined>();
 
   // Sample data initialization
   useEffect(() => {
@@ -224,6 +229,37 @@ export default function ConstructionTracker() {
     }
   };
 
+  const handleAddPartner = (partnerData: Omit<Partner, 'id' | 'totalSpent' | 'balance' | 'status'>) => {
+    if (editingPartner) {
+      // Update existing partner
+      setPartners(prev => prev.map(p => 
+        p.id === editingPartner.id 
+          ? { ...p, ...partnerData }
+          : p
+      ));
+      toast({
+        title: 'Partner Updated',
+        description: `Updated partner: ${partnerData.name}`,
+      });
+      setEditingPartner(undefined);
+    } else {
+      // Add new partner
+      const newPartner: Partner = {
+        ...partnerData,
+        id: Date.now().toString(),
+        totalSpent: 0,
+        balance: partnerData.totalContribution,
+        status: 'Active'
+      };
+      
+      setPartners(prev => [...prev, newPartner]);
+      toast({
+        title: 'Partner Added',
+        description: `Added new partner: ${partnerData.name}`,
+      });
+    }
+  };
+
   const handleAddUnit = (unitData: Omit<Unit, 'id' | 'actualCost'>) => {
     const newUnit: Unit = {
       ...unitData,
@@ -236,6 +272,11 @@ export default function ConstructionTracker() {
       title: 'Unit Created',
       description: `Created new unit: ${unitData.name}`,
     });
+  };
+
+  const handleEditPartner = (partner: Partner) => {
+    setEditingPartner(partner);
+    setShowPartnerForm(true);
   };
 
   const formatCurrency = (amount: number) => {
@@ -298,6 +339,10 @@ export default function ConstructionTracker() {
               <Plus className="h-4 w-4 mr-2" />
               Add Unit
             </Button>
+            <Button onClick={() => setShowPartnerForm(true)} variant="outline">
+              <UserPlus className="h-4 w-4 mr-2" />
+              Add Partner
+            </Button>
           </div>
         </div>
       </header>
@@ -351,7 +396,7 @@ export default function ConstructionTracker() {
 
         {/* Main Content Tabs */}
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="overview" className="flex items-center gap-2">
               <BarChart3 className="h-4 w-4" />
               Overview
@@ -363,6 +408,10 @@ export default function ConstructionTracker() {
             <TabsTrigger value="units" className="flex items-center gap-2">
               <Building2 className="h-4 w-4" />
               Units
+            </TabsTrigger>
+            <TabsTrigger value="partners" className="flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              Partners
             </TabsTrigger>
             <TabsTrigger value="analytics" className="flex items-center gap-2">
               <BarChart3 className="h-4 w-4" />
@@ -389,6 +438,14 @@ export default function ConstructionTracker() {
             <UnitsTable units={units} partners={partners} />
           </TabsContent>
 
+          <TabsContent value="partners">
+            <PartnersTable 
+              partners={partners} 
+              purchases={purchases}
+              onEditPartner={handleEditPartner}
+            />
+          </TabsContent>
+
           <TabsContent value="analytics">
             <BudgetChart budgetData={budgetCategories} />
           </TabsContent>
@@ -409,6 +466,16 @@ export default function ConstructionTracker() {
         onOpenChange={setShowUnitForm}
         onSubmit={handleAddUnit}
         partners={partners}
+      />
+
+      <PartnerForm
+        open={showPartnerForm}
+        onOpenChange={(open) => {
+          setShowPartnerForm(open);
+          if (!open) setEditingPartner(undefined);
+        }}
+        onSubmit={handleAddPartner}
+        partner={editingPartner}
       />
     </div>
   );
