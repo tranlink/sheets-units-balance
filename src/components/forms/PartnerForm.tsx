@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -61,6 +61,25 @@ export function PartnerForm({ open, onOpenChange, onSubmit, partner }: PartnerFo
       totalContribution: partner?.totalContribution || 0,
     },
   });
+
+  // Reset form when partner changes
+  useEffect(() => {
+    if (partner) {
+      form.reset({
+        name: partner.name,
+        email: partner.email,
+        phone: partner.phone,
+        totalContribution: partner.totalContribution,
+      });
+    } else {
+      form.reset({
+        name: '',
+        email: '',
+        phone: '',
+        totalContribution: 0,
+      });
+    }
+  }, [partner, form]);
 
   const handleSubmit = (data: PartnerFormData) => {
     onSubmit({
