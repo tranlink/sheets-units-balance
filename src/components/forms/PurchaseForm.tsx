@@ -57,7 +57,16 @@ type PurchaseFormData = z.infer<typeof purchaseSchema>;
 interface PurchaseFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (purchase: Omit<Purchase, 'id' | 'totalCost'> & { units: string[], distributeEvenly: boolean }) => void;
+  onSubmit: (purchase: {
+    date: string;
+    category: string;
+    description: string;
+    quantity: number;
+    unit_price: number;
+    units: string[];
+    partner_id?: string;
+    distributeEvenly: boolean;
+  }) => void;
   units: Array<{ id: string; name: string }>;
   partners: Array<{ id: string; name: string }>;
   categories: string[];
@@ -101,10 +110,9 @@ export function PurchaseForm({ open, onOpenChange, onSubmit, units, partners, ca
       category: data.category,
       description: data.description,
       quantity: data.quantity,
-      unitPrice: data.unitPrice,
+      unit_price: data.unitPrice,
       units: data.units,
-      partner: data.partner,
-      receipt: '',
+      partner_id: data.partner,
       distributeEvenly: data.distributeEvenly,
     });
     form.reset();

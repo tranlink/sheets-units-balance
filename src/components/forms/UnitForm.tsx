@@ -41,7 +41,13 @@ type UnitFormData = z.infer<typeof unitSchema>;
 interface UnitFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (unit: Omit<Unit, 'id' | 'actualCost'>) => void;
+  onSubmit: (unit: {
+    name: string;
+    type: string;
+    budget: number;
+    status: 'Planning' | 'In Progress' | 'Completed' | 'On Hold';
+    partner_id?: string;
+  }) => void;
   partners: Array<{ id: string; name: string }>;
 }
 
@@ -71,7 +77,7 @@ export function UnitForm({ open, onOpenChange, onSubmit, partners }: UnitFormPro
       type: data.type,
       budget: data.budget,
       status: data.status,
-      partner: data.partner,
+      partner_id: data.partner,
     });
     form.reset();
     onOpenChange(false);

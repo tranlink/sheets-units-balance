@@ -15,9 +15,39 @@ import { Partner, Purchase } from '@/types/construction';
 import { Edit, Mail, Phone } from 'lucide-react';
 
 interface PartnersTableProps {
-  partners: Partner[];
-  purchases: Purchase[];
-  onEditPartner: (partner: Partner) => void;
+  partners: Array<{
+    id: string;
+    name: string;
+    email: string;
+    phone: string;
+    totalContribution: number;
+    totalSpent: number;
+    balance: number;
+    status: 'Active' | 'Inactive';
+  }>;
+  purchases: Array<{
+    id: string;
+    date: string;
+    category: string;
+    description: string;
+    quantity: number;
+    unitPrice: number;
+    totalCost: number;
+    unit?: string;
+    partner?: string;
+    receipt?: string;
+  }>;
+  onEditPartner: (partner: {
+    id: string;
+    name: string;
+    email: string;
+    phone: string;
+    total_contribution: number;
+    status: string;
+    created_at: string;
+    updated_at: string;
+    project_id: string;
+  }) => void;
 }
 
 export function PartnersTable({ partners, purchases, onEditPartner }: PartnersTableProps) {

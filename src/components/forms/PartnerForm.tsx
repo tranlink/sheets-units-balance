@@ -33,8 +33,22 @@ type PartnerFormData = z.infer<typeof partnerSchema>;
 interface PartnerFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (partner: Omit<Partner, 'id' | 'totalSpent' | 'balance' | 'status'>) => void;
-  partner?: Partner;
+  onSubmit: (partner: {
+    name: string;
+    email?: string;
+    phone?: string;
+    total_contribution: number;
+  }) => void;
+  partner?: {
+    id: string;
+    name: string;
+    email: string;
+    phone: string;
+    totalContribution: number;
+    totalSpent: number;
+    balance: number;
+    status: 'Active' | 'Inactive';
+  };
 }
 
 export function PartnerForm({ open, onOpenChange, onSubmit, partner }: PartnerFormProps) {
@@ -53,7 +67,7 @@ export function PartnerForm({ open, onOpenChange, onSubmit, partner }: PartnerFo
       name: data.name,
       email: data.email,
       phone: data.phone,
-      totalContribution: data.totalContribution,
+      total_contribution: data.totalContribution,
     });
     form.reset();
     onOpenChange(false);

@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { Session } from '@supabase/supabase-js';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
 import { 
   Building2, 
   Calculator, 
@@ -14,10 +17,21 @@ import {
   BarChart3,
   FileText,
   UserPlus,
-  Settings
+  Settings,
+  LogIn
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { Purchase, Unit, Partner, BudgetCategory, Alert } from '@/types/construction';
+import {
+  Project as DBProject, 
+  Partner as DBPartner, 
+  Unit as DBUnit, 
+  Purchase as DBPurchase,
+  createProject, updateProject, getProjects,
+  createPartner, updatePartner, getPartners,
+  createUnit, updateUnit, getUnits,
+  createPurchase, getPurchases
+} from '@/lib/database';
+import { BudgetCategory, Alert } from '@/types/construction';
 import { ProjectSettings, ProjectSettingsForm } from '@/components/forms/ProjectSettingsForm';
 import { PurchaseForm } from '@/components/forms/PurchaseForm';
 import { UnitForm } from '@/components/forms/UnitForm';
@@ -25,149 +39,196 @@ import { PartnerForm } from '@/components/forms/PartnerForm';
 import { PurchasesTable } from '@/components/tables/PurchasesTable';
 import { UnitsTable } from '@/components/tables/UnitsTable';
 import { PartnersTable } from '@/components/tables/PartnersTable';
+import { ReportsTab } from '@/components/reports/ReportsTab';
 import { BudgetChart } from '@/components/charts/BudgetChart';
+
+// Login Component
+function LoginComponent() {
+  const [email, setEmail] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: window.location.origin,
+      },
+    });
+
+    if (error) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } else {
+      toast({
+        title: 'Check your email',
+        description: 'We sent you a login link!',
+      });
+    }
+
+    setLoading(false);
+  };
+
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <div className="flex justify-center mb-4">
+            <Building2 className="h-12 w-12 text-primary" />
+          </div>
+          <CardTitle>Construction Cost Tracker</CardTitle>
+          <CardDescription>Sign in to track your construction costs</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <Input
+                type="email"
+                placeholder="Enter your email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+            <Button type="submit" className="w-full" disabled={loading}>
+              <LogIn className="h-4 w-4 mr-2" />
+              {loading ? 'Sending...' : 'Send Magic Link'}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
 
 export default function ConstructionTracker() {
   const { toast } = useToast();
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
   
   // State management
-  const [projectSettings, setProjectSettings] = useState<ProjectSettings>({
-    name: 'Construction Cost Tracker',
-    description: 'Track your Airbnb construction costs',
-    totalBudget: 300000,
-    location: '',
-    categories: [
-      'Plumbing', 'Bathroom', 'Bedroom', 'Kitchen', 'Living Room', 'Flooring',
-      'Electrical', 'HVAC', 'Roofing', 'Painting', 'Doors & Windows', 
-      'Insulation', 'Foundation', 'Exterior', 'Other'
-    ],
-  });
-  const [purchases, setPurchases] = useState<Purchase[]>([]);
-  const [units, setUnits] = useState<Unit[]>([]);
-  const [partners, setPartners] = useState<Partner[]>([]);
+  const [currentProject, setCurrentProject] = useState<DBProject | null>(null);
+  const [purchases, setPurchases] = useState<DBPurchase[]>([]);
+  const [units, setUnits] = useState<DBUnit[]>([]);
+  const [partners, setPartners] = useState<DBPartner[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [showPurchaseForm, setShowPurchaseForm] = useState(false);
   const [showUnitForm, setShowUnitForm] = useState(false);
   const [showPartnerForm, setShowPartnerForm] = useState(false);
   const [showProjectSettings, setShowProjectSettings] = useState(false);
-  const [editingPartner, setEditingPartner] = useState<Partner | undefined>();
+  const [editingPartner, setEditingPartner] = useState<DBPartner | undefined>();
 
-  // Sample data initialization
+  // Check for authentication session
   useEffect(() => {
-    // Initialize with sample partners
-    setPartners([
-      {
-        id: '1',
-        name: 'Ahmed Hassan',
-        email: 'ahmed@example.com',
-        phone: '+20123456789',
-        totalContribution: 100000,
-        totalSpent: 85000,
-        balance: 15000,
-        status: 'Active'
-      },
-      {
-        id: '2',
-        name: 'Sarah Mohamed',
-        email: 'sarah@example.com',
-        phone: '+20123456790',
-        totalContribution: 150000,
-        totalSpent: 120000,
-        balance: 30000,
-        status: 'Active'
-      }
-    ]);
+    const getSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setSession(session);
+      setLoading(false);
+    };
 
-    // Initialize with sample units
-    setUnits([
-      {
-        id: '1',
-        name: 'Aswan A1',
-        type: '2 Bedroom',
-        budget: 80000,
-        actualCost: 76000,
-        status: 'In Progress',
-        partner: '1'
-      },
-      {
-        id: '2',
-        name: 'Cairo B2',
-        type: 'Studio',
-        budget: 50000,
-        actualCost: 47500,
-        status: 'Completed',
-        partner: '2'
-      }
-    ]);
+    getSession();
 
-    // Initialize with sample purchases
-    setPurchases([
-      {
-        id: '1',
-        date: '2024-08-10',
-        category: 'Bathroom',
-        description: 'Ceramic tiles for bathroom flooring',
-        quantity: 20,
-        unitPrice: 250,
-        totalCost: 5000,
-        unit: '1',
-        partner: '1'
-      },
-      {
-        id: '2',
-        date: '2024-08-12',
-        category: 'Plumbing',
-        description: 'Bathroom fixtures installation',
-        quantity: 1,
-        unitPrice: 3500,
-        totalCost: 3500,
-        unit: '2',
-        partner: '2'
-      }
-    ]);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
 
-    // Initialize alerts
-    setAlerts([
-      {
-        id: '1',
-        message: 'Aswan A1 is approaching budget limit (95% used)',
-        type: 'warning',
-        severity: 'high',
-        date: '2024-08-13'
-      },
-      {
-        id: '2',
-        message: 'Monthly spending increased by 15%',
-        type: 'info',
-        severity: 'medium',
-        date: '2024-08-12'
-      }
-    ]);
+    return () => subscription.unsubscribe();
   }, []);
 
+  // Load project data when user is authenticated
+  useEffect(() => {
+    if (session) {
+      loadProjectData();
+    }
+  }, [session]);
+
+  const loadProjectData = async () => {
+    try {
+      // Get or create default project
+      const projects = await getProjects();
+      let project = projects[0];
+      
+      if (!project) {
+        // Create default project
+        project = await createProject({
+          name: 'Construction Cost Tracker',
+          description: 'Track your Airbnb construction costs',
+          total_budget: 300000,
+          location: '',
+          categories: [
+            'Plumbing', 'Bathroom', 'Bedroom', 'Kitchen', 'Living Room', 'Flooring',
+            'Electrical', 'HVAC', 'Roofing', 'Painting', 'Doors & Windows', 
+            'Insulation', 'Foundation', 'Exterior', 'Other'
+          ],
+        });
+      }
+      
+      setCurrentProject(project);
+      
+      // Load related data
+      const [partnersData, unitsData, purchasesData] = await Promise.all([
+        getPartners(project.id),
+        getUnits(project.id),
+        getPurchases(project.id)
+      ]);
+      
+      setPartners(partnersData);
+      setUnits(unitsData);
+      setPurchases(purchasesData);
+      
+    } catch (error) {
+      console.error('Error loading project data:', error);
+      toast({
+        title: 'Error Loading Data',
+        description: 'Failed to load project data. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Show loading state while checking authentication
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  // Show login if not authenticated
+  if (!session) {
+    return <LoginComponent />;
+  }
+
+  // Show loading if no project loaded yet
+  if (!currentProject) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p>Loading project data...</p>
+        </div>
+      </div>
+    );
+  }
+
   // Calculate statistics
-  const totalBudget = projectSettings.totalBudget;
-  const totalSpent = purchases.reduce((sum, purchase) => sum + purchase.totalCost, 0);
+  const totalBudget = currentProject.total_budget;
+  const totalSpent = purchases.reduce((sum, purchase) => sum + purchase.total_cost, 0);
   const activeUnits = units.filter(unit => unit.status === 'In Progress').length;
   const completedUnits = units.filter(unit => unit.status === 'Completed').length;
 
-  // Update unit costs when purchases change
-  useEffect(() => {
-    setUnits(prevUnits => 
-      prevUnits.map(unit => ({
-        ...unit,
-        actualCost: purchases
-          .filter(p => p.unit === unit.id)
-          .reduce((sum, p) => sum + p.totalCost, 0)
-      }))
-    );
-  }, [purchases]);
-
   // Budget categories calculation
-  const budgetCategories: BudgetCategory[] = projectSettings.categories.map(category => {
+  const budgetCategories: BudgetCategory[] = currentProject.categories.map(category => {
     const spentAmount = purchases
       .filter(p => p.category === category)
-      .reduce((sum, p) => sum + p.totalCost, 0);
+      .reduce((sum, p) => sum + p.total_cost, 0);
     const budgetAmount = totalBudget * (
       category === 'Bathroom' ? 0.15 : 
       category === 'Kitchen' ? 0.15 : 
@@ -188,113 +249,179 @@ export default function ConstructionTracker() {
   });
 
   // Handlers
-  const handleAddPurchase = (purchaseData: Omit<Purchase, 'id' | 'totalCost'> & { units: string[], distributeEvenly: boolean }) => {
-    const totalCost = purchaseData.quantity * purchaseData.unitPrice;
-    
-    if (purchaseData.distributeEvenly && purchaseData.units.length > 1) {
-      // Split into multiple purchases, one per unit
-      const quantityPerUnit = purchaseData.quantity / purchaseData.units.length;
-      const costPerUnit = totalCost / purchaseData.units.length;
+  const handleAddPurchase = async (purchaseData: {
+    date: string;
+    category: string;
+    description: string;
+    quantity: number;
+    unit_price: number;
+    units: string[];
+    partner_id?: string;
+    distributeEvenly: boolean;
+  }) => {
+    try {
+      const totalCost = purchaseData.quantity * purchaseData.unit_price;
       
-      const newPurchases: Purchase[] = purchaseData.units.map(unitId => ({
-        id: `${Date.now()}-${unitId}`,
-        date: purchaseData.date,
-        category: purchaseData.category,
-        description: `${purchaseData.description} (${quantityPerUnit} units)`,
-        quantity: quantityPerUnit,
-        unitPrice: purchaseData.unitPrice,
-        totalCost: costPerUnit,
-        unit: unitId,
-        partner: purchaseData.partner,
-        receipt: purchaseData.receipt,
-      }));
-      
-      setPurchases(prev => [...newPurchases, ...prev]);
-      
+      if (purchaseData.distributeEvenly && purchaseData.units.length > 1) {
+        // Split into multiple purchases, one per unit
+        const quantityPerUnit = purchaseData.quantity / purchaseData.units.length;
+        const costPerUnit = totalCost / purchaseData.units.length;
+        
+        const newPurchases = await Promise.all(
+          purchaseData.units.map(unitId => 
+            createPurchase({
+              project_id: currentProject.id,
+              unit_id: unitId,
+              partner_id: purchaseData.partner_id,
+              date: purchaseData.date,
+              category: purchaseData.category,
+              description: `${purchaseData.description} (${quantityPerUnit} units)`,
+              quantity: quantityPerUnit,
+              unit_price: purchaseData.unit_price,
+              total_cost: costPerUnit,
+            })
+          )
+        );
+        
+        setPurchases(prev => [...newPurchases, ...prev]);
+        
+        toast({
+          title: 'Purchase Added',
+          description: `Added ${purchaseData.description} to ${purchaseData.units.length} units for EGP ${totalCost.toLocaleString()} total`,
+        });
+      } else {
+        // Create single purchase
+        const newPurchase = await createPurchase({
+          project_id: currentProject.id,
+          unit_id: purchaseData.units[0],
+          partner_id: purchaseData.partner_id,
+          date: purchaseData.date,
+          category: purchaseData.category,
+          description: purchaseData.description,
+          quantity: purchaseData.quantity,
+          unit_price: purchaseData.unit_price,
+          total_cost: totalCost,
+        });
+        
+        setPurchases(prev => [newPurchase, ...prev]);
+        
+        toast({
+          title: 'Purchase Added',
+          description: `Added ${purchaseData.description} for EGP ${totalCost.toLocaleString()}`,
+        });
+      }
+    } catch (error) {
+      console.error('Error adding purchase:', error);
       toast({
-        title: 'Purchase Added',
-        description: `Added ${purchaseData.description} to ${purchaseData.units.length} units for EGP ${totalCost.toLocaleString()} total`,
-      });
-    } else {
-      // Create single purchase for first selected unit or general
-      const newPurchase: Purchase = {
-        id: Date.now().toString(),
-        date: purchaseData.date,
-        category: purchaseData.category,
-        description: purchaseData.description,
-        quantity: purchaseData.quantity,
-        unitPrice: purchaseData.unitPrice,
-        totalCost: totalCost,
-        unit: purchaseData.units[0],
-        partner: purchaseData.partner,
-        receipt: purchaseData.receipt,
-      };
-      
-      setPurchases(prev => [newPurchase, ...prev]);
-      
-      toast({
-        title: 'Purchase Added',
-        description: `Added ${purchaseData.description} for EGP ${totalCost.toLocaleString()}`,
-      });
-    }
-  };
-
-  const handleAddPartner = (partnerData: Omit<Partner, 'id' | 'totalSpent' | 'balance' | 'status'>) => {
-    if (editingPartner) {
-      // Update existing partner
-      setPartners(prev => prev.map(p => 
-        p.id === editingPartner.id 
-          ? { ...p, ...partnerData }
-          : p
-      ));
-      toast({
-        title: 'Partner Updated',
-        description: `Updated partner: ${partnerData.name}`,
-      });
-      setEditingPartner(undefined);
-    } else {
-      // Add new partner
-      const newPartner: Partner = {
-        ...partnerData,
-        id: Date.now().toString(),
-        totalSpent: 0,
-        balance: partnerData.totalContribution,
-        status: 'Active'
-      };
-      
-      setPartners(prev => [...prev, newPartner]);
-      toast({
-        title: 'Partner Added',
-        description: `Added new partner: ${partnerData.name}`,
+        title: 'Error',
+        description: 'Failed to add purchase. Please try again.',
+        variant: 'destructive',
       });
     }
   };
 
-  const handleAddUnit = (unitData: Omit<Unit, 'id' | 'actualCost'>) => {
-    const newUnit: Unit = {
-      ...unitData,
-      id: Date.now().toString(),
-      actualCost: 0
-    };
-    
-    setUnits(prev => [...prev, newUnit]);
-    toast({
-      title: 'Unit Created',
-      description: `Created new unit: ${unitData.name}`,
-    });
+  const handleAddPartner = async (partnerData: {
+    name: string;
+    email?: string;
+    phone?: string;
+    total_contribution: number;
+  }) => {
+    try {
+      if (editingPartner) {
+        // Update existing partner
+        const updatedPartner = await updatePartner(editingPartner.id, partnerData);
+        setPartners(prev => prev.map(p => 
+          p.id === editingPartner.id ? updatedPartner : p
+        ));
+        toast({
+          title: 'Partner Updated',
+          description: `Updated partner: ${partnerData.name}`,
+        });
+        setEditingPartner(undefined);
+      } else {
+        // Add new partner
+        const newPartner = await createPartner({
+          project_id: currentProject.id,
+          ...partnerData,
+          status: 'Active'
+        });
+        
+        setPartners(prev => [...prev, newPartner]);
+        toast({
+          title: 'Partner Added',
+          description: `Added new partner: ${partnerData.name}`,
+        });
+      }
+    } catch (error) {
+      console.error('Error managing partner:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to manage partner. Please try again.',
+        variant: 'destructive',
+      });
+    }
   };
 
-  const handleEditPartner = (partner: Partner) => {
+  const handleAddUnit = async (unitData: {
+    name: string;
+    type: string;
+    budget: number;
+    status: 'Planning' | 'In Progress' | 'Completed' | 'On Hold';
+    partner_id?: string;
+  }) => {
+    try {
+      const newUnit = await createUnit({
+        project_id: currentProject.id,
+        ...unitData
+      });
+      
+      setUnits(prev => [...prev, newUnit]);
+      toast({
+        title: 'Unit Created',
+        description: `Created new unit: ${unitData.name}`,
+      });
+    } catch (error) {
+      console.error('Error adding unit:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to add unit. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleEditPartner = (partner: DBPartner) => {
     setEditingPartner(partner);
     setShowPartnerForm(true);
   };
 
-  const handleUpdateProjectSettings = (settings: ProjectSettings) => {
-    setProjectSettings(settings);
-    toast({
-      title: 'Project Settings Updated',
-      description: `Project "${settings.name}" has been updated successfully.`,
-    });
+  const handleUpdateProjectSettings = async (settings: ProjectSettings) => {
+    try {
+      const updatedProject = await updateProject(currentProject.id, {
+        name: settings.name,
+        description: settings.description,
+        total_budget: settings.totalBudget,
+        location: settings.location,
+        categories: settings.categories,
+      });
+      
+      setCurrentProject(updatedProject);
+      toast({
+        title: 'Project Settings Updated',
+        description: `Project "${settings.name}" has been updated successfully.`,
+      });
+    } catch (error) {
+      console.error('Error updating project:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update project settings. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
   };
 
   const formatCurrency = (amount: number) => {
@@ -345,7 +472,7 @@ export default function ConstructionTracker() {
             <Building2 className="h-8 w-8 text-primary" />
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold text-card-foreground">{projectSettings.name}</h1>
+                <h1 className="text-2xl font-bold text-card-foreground">{currentProject.name}</h1>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -356,8 +483,8 @@ export default function ConstructionTracker() {
                 </Button>
               </div>
               <p className="text-sm text-muted-foreground">
-                {projectSettings.description}
-                {projectSettings.location && ` • ${projectSettings.location}`}
+                {currentProject.description}
+                {currentProject.location && ` • ${currentProject.location}`}
               </p>
             </div>
           </div>
@@ -373,6 +500,9 @@ export default function ConstructionTracker() {
             <Button onClick={() => setShowPartnerForm(true)} variant="outline">
               <UserPlus className="h-4 w-4 mr-2" />
               Add Partner
+            </Button>
+            <Button onClick={handleLogout} variant="ghost" size="sm">
+              Logout
             </Button>
           </div>
         </div>
@@ -400,34 +530,9 @@ export default function ConstructionTracker() {
           ))}
         </div>
 
-        {/* Alerts */}
-        {alerts.length > 0 && (
-          <Card className="mb-8">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5" />
-                Alerts & Notifications
-              </CardTitle>
-              <CardDescription>
-                Important updates and budget warnings
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {alerts.map((alert) => (
-                <div key={alert.id} className="flex items-center justify-between p-3 rounded-lg border">
-                  <span className="text-sm">{alert.message}</span>
-                  <Badge variant={alert.severity === 'high' ? 'destructive' : alert.severity === 'medium' ? 'default' : 'secondary'}>
-                    {alert.severity}
-                  </Badge>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
-
         {/* Main Content Tabs */}
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="overview" className="flex items-center gap-2">
               <BarChart3 className="h-4 w-4" />
               Overview
@@ -444,6 +549,10 @@ export default function ConstructionTracker() {
               <Users className="h-4 w-4" />
               Partners
             </TabsTrigger>
+            <TabsTrigger value="reports" className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              Reports
+            </TabsTrigger>
             <TabsTrigger value="analytics" className="flex items-center gap-2">
               <BarChart3 className="h-4 w-4" />
               Analytics
@@ -454,28 +563,79 @@ export default function ConstructionTracker() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <PurchasesTable 
                 purchases={purchases.slice(0, 5)} 
-                units={units} 
-                partners={partners}
-                categories={projectSettings.categories}
+                units={units.map(u => ({ id: u.id, name: u.name }))} 
+                partners={partners.map(p => ({ id: p.id, name: p.name }))}
+                categories={currentProject.categories}
               />
-              <UnitsTable units={units} partners={partners} />
+              <UnitsTable 
+                units={units.map(u => ({
+                  id: u.id,
+                  name: u.name,
+                  type: u.type,
+                  budget: u.budget,
+                  actualCost: purchases.filter(p => p.unit_id === u.id).reduce((sum, p) => sum + p.total_cost, 0),
+                  status: u.status,
+                  partner: u.partner_id
+                }))} 
+                partners={partners.map(p => ({ id: p.id, name: p.name }))} 
+              />
             </div>
           </TabsContent>
 
           <TabsContent value="purchases">
-            <PurchasesTable purchases={purchases} units={units} partners={partners} categories={projectSettings.categories} />
+            <PurchasesTable 
+              purchases={purchases} 
+              units={units.map(u => ({ id: u.id, name: u.name }))} 
+              partners={partners.map(p => ({ id: p.id, name: p.name }))}
+              categories={currentProject.categories} 
+            />
           </TabsContent>
 
           <TabsContent value="units">
-            <UnitsTable units={units} partners={partners} />
+            <UnitsTable 
+              units={units.map(u => ({
+                id: u.id,
+                name: u.name,
+                type: u.type,
+                budget: u.budget,
+                actualCost: purchases.filter(p => p.unit_id === u.id).reduce((sum, p) => sum + p.total_cost, 0),
+                status: u.status,
+                partner: u.partner_id
+              }))} 
+              partners={partners.map(p => ({ id: p.id, name: p.name }))} 
+            />
           </TabsContent>
 
           <TabsContent value="partners">
             <PartnersTable 
-              partners={partners} 
-              purchases={purchases}
+              partners={partners.map(p => ({
+                id: p.id,
+                name: p.name,
+                email: p.email || '',
+                phone: p.phone || '',
+                totalContribution: p.total_contribution,
+                totalSpent: 0, // Will be calculated in the component
+                balance: 0, // Will be calculated in the component
+                status: p.status as 'Active' | 'Inactive'
+              }))} 
+              purchases={purchases.map(p => ({
+                id: p.id,
+                date: p.date,
+                category: p.category,
+                description: p.description,
+                quantity: p.quantity,
+                unitPrice: p.unit_price,
+                totalCost: p.total_cost,
+                unit: p.unit_id,
+                partner: p.partner_id,
+                receipt: p.receipt_url
+              }))}
               onEditPartner={handleEditPartner}
             />
+          </TabsContent>
+
+          <TabsContent value="reports">
+            <ReportsTab projectId={currentProject.id} />
           </TabsContent>
 
           <TabsContent value="analytics">
@@ -489,16 +649,16 @@ export default function ConstructionTracker() {
         open={showPurchaseForm}
         onOpenChange={setShowPurchaseForm}
         onSubmit={handleAddPurchase}
-        units={units}
-        partners={partners}
-        categories={projectSettings.categories}
+        units={units.map(u => ({ id: u.id, name: u.name }))}
+        partners={partners.map(p => ({ id: p.id, name: p.name }))}
+        categories={currentProject.categories}
       />
 
       <UnitForm
         open={showUnitForm}
         onOpenChange={setShowUnitForm}
         onSubmit={handleAddUnit}
-        partners={partners}
+        partners={partners.map(p => ({ id: p.id, name: p.name }))}
       />
 
       <PartnerForm
@@ -508,14 +668,29 @@ export default function ConstructionTracker() {
           if (!open) setEditingPartner(undefined);
         }}
         onSubmit={handleAddPartner}
-        partner={editingPartner}
+        partner={editingPartner ? {
+          id: editingPartner.id,
+          name: editingPartner.name,
+          email: editingPartner.email || '',
+          phone: editingPartner.phone || '',
+          totalContribution: editingPartner.total_contribution,
+          totalSpent: 0,
+          balance: 0,
+          status: editingPartner.status as 'Active' | 'Inactive'
+        } : undefined}
       />
 
       <ProjectSettingsForm
         open={showProjectSettings}
         onOpenChange={setShowProjectSettings}
         onSubmit={handleUpdateProjectSettings}
-        currentSettings={projectSettings}
+        currentSettings={{
+          name: currentProject.name,
+          description: currentProject.description || '',
+          totalBudget: currentProject.total_budget,
+          location: currentProject.location || '',
+          categories: currentProject.categories,
+        }}
       />
     </div>
   );
