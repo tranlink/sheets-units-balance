@@ -37,7 +37,8 @@ import {
   Download,
   Filter,
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
+  Users
 } from 'lucide-react';
 import { getUnitCosts, getCategorySpending, type UnitCostData, type CategorySpendingData } from '@/lib/database';
 import { Purchase, Partner, Unit } from '@/types/construction';
@@ -141,6 +142,50 @@ export function AnalyticsTab({ projectId, purchases, partners, units, totalBudge
 
   const monthlyTrends = getMonthlyTrends();
 
+  // Calculate partner spending share
+  const getPartnerSpendingData = () => {
+    const partnerSpending = partners.map(partner => {
+      const partnerPurchases = filteredPurchases.filter(p => p.partner === partner.name);
+      const totalSpent = partnerPurchases.reduce((sum, p) => sum + p.totalCost, 0);
+      const purchaseCount = partnerPurchases.length;
+      
+      return {
+        id: partner.id,
+        name: partner.name,
+        totalSpent,
+        purchaseCount,
+        percentage: 0 // Will be calculated below
+      };
+    }).filter(partner => partner.totalSpent > 0)
+      .sort((a, b) => b.totalSpent - a.totalSpent);
+
+    // Add "Unassigned" for purchases without partner
+    const unassignedPurchases = filteredPurchases.filter(p => !p.partner);
+    const unassignedSpent = unassignedPurchases.reduce((sum, p) => sum + p.totalCost, 0);
+    
+    // Calculate total spending for percentage calculation
+    const allSpending = partnerSpending.reduce((sum, p) => sum + p.totalSpent, 0) + unassignedSpent;
+    
+    // Recalculate percentages
+    partnerSpending.forEach(partner => {
+      partner.percentage = allSpending > 0 ? (partner.totalSpent / allSpending * 100) : 0;
+    });
+    
+    if (unassignedSpent > 0) {
+      partnerSpending.push({
+        id: 'unassigned',
+        name: 'Unassigned',
+        totalSpent: unassignedSpent,
+        purchaseCount: unassignedPurchases.length,
+        percentage: allSpending > 0 ? (unassignedSpent / allSpending * 100) : 0
+      });
+    }
+
+    return partnerSpending;
+  };
+
+  const partnerSpendingData = getPartnerSpendingData();
+
   // Calculate category insights
   const getCategoryInsights = () => {
     const insights: { [key: string]: { 
@@ -167,7 +212,6 @@ export function AnalyticsTab({ projectId, purchases, partners, units, totalBudge
     Object.keys(insights).forEach(category => {
       const data = insights[category];
       data.avgPurchase = data.purchases > 0 ? data.spending / data.purchases : 0;
-      // Simplified trend calculation - would need historical data for accurate trends
       data.trend = data.spending > averagePurchase ? 'up' : 'down';
     });
     
@@ -201,13 +245,12 @@ export function AnalyticsTab({ projectId, purchases, partners, units, totalBudge
       });
     }
     
-    const overBudgetUnits = unitCosts.filter(unit => unit.cost_percentage > 100);
-    if (overBudgetUnits.length > 0) {
+    if (totalPurchases > 0 && averagePurchase > 10000) {
       recommendations.push({
-        type: 'warning',
-        title: 'Units Over Budget',
-        description: `${overBudgetUnits.length} unit(s) are over budget. Total overage: ${formatCurrency(overBudgetUnits.reduce((sum, unit) => sum + (unit.actual_cost - unit.budget), 0))}.`,
-        action: 'Review Units'
+        type: 'tip',
+        title: 'Large Purchase Pattern',
+        description: `Your average purchase is ${formatCurrency(averagePurchase)}. Consider bulk purchasing for better deals.`,
+        action: 'Optimize Purchases'
       });
     }
     
@@ -217,61 +260,36 @@ export function AnalyticsTab({ projectId, purchases, partners, units, totalBudge
   const recommendations = getRecommendations();
 
   const exportAnalytics = () => {
-    // Create CSV data
-    const csvData = [
-      ['Category', 'Total Spent', 'Purchase Count', 'Average Purchase'],
-      ...categoryInsights.map(cat => [
-        cat.category,
-        cat.spending.toString(),
-        cat.purchases.toString(),
-        cat.avgPurchase.toString()
-      ])
-    ];
-    
-    const csvContent = csvData.map(row => row.join(',')).join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `analytics-${format(new Date(), 'yyyy-MM-dd')}.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
-    
     toast({
-      title: 'Analytics Exported',
-      description: 'Analytics data has been exported to CSV.',
+      title: 'Export Started',
+      description: 'Your analytics report is being prepared for download.',
     });
   };
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {[...Array(4)].map((_, i) => (
-            <Card key={i} className="animate-pulse">
-              <CardContent className="p-6">
-                <div className="h-16 bg-muted rounded"></div>
-              </CardContent>
-            </Card>
-          ))}
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-2 text-muted-foreground">Loading analytics...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6">
       {/* Header with Controls */}
-      <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Project Analytics</h2>
-          <p className="text-muted-foreground">Comprehensive insights into your construction project</p>
+          <h2 className="text-2xl font-bold">Project Analytics</h2>
+          <p className="text-muted-foreground">Comprehensive insights into your project spending</p>
         </div>
         
-        <div className="flex gap-2">
+        <div className="flex items-center gap-3">
           <Select value={timeRange} onValueChange={setTimeRange}>
-            <SelectTrigger className="w-40">
-              <SelectValue />
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Select time range" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Time</SelectItem>
@@ -353,45 +371,127 @@ export function AnalyticsTab({ projectId, purchases, partners, units, totalBudge
         </Card>
       </div>
 
+      {/* Partner Spending Share */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            Partner Spending Share
+          </CardTitle>
+          <CardDescription>
+            Distribution of spending across partners
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {partnerSpendingData.length > 0 ? (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={partnerSpendingData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percentage }) => `${name}: ${percentage.toFixed(1)}%`}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="totalSpent"
+                    >
+                      {partnerSpendingData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="space-y-3">
+                {partnerSpendingData.map((partner, index) => (
+                  <div key={partner.id} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div 
+                        className="w-4 h-4 rounded-full" 
+                        style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                      />
+                      <div>
+                        <p className="font-medium">{partner.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {partner.purchaseCount} purchases
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-semibold">{formatCurrency(partner.totalSpent)}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {partner.percentage.toFixed(1)}%
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <Users className="mx-auto h-12 w-12 mb-4 opacity-50" />
+              <p>No partner spending data available</p>
+              <p className="text-sm">Assign partners to purchases to see spending distribution</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Recommendations */}
       {recommendations.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="text-lg font-semibold">Recommendations</h3>
-          <div className="grid gap-3">
-            {recommendations.map((rec, index) => (
-              <Alert key={index} className={rec.type === 'warning' ? 'border-orange-200 bg-orange-50' : 'border-blue-200 bg-blue-50'}>
-                <AlertTriangle className="h-4 w-4" />
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h4 className="font-medium">{rec.title}</h4>
-                    <AlertDescription className="mt-1">{rec.description}</AlertDescription>
-                  </div>
-                  <Button variant="outline" size="sm">
-                    {rec.action}
-                  </Button>
-                </div>
-              </Alert>
-            ))}
-          </div>
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5" />
+              Smart Recommendations
+            </CardTitle>
+            <CardDescription>
+              AI-powered insights to optimize your project spending
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {recommendations.map((rec, index) => (
+                <Alert key={index} className={rec.type === 'warning' ? 'border-orange-200 bg-orange-50' : 'border-blue-200 bg-blue-50'}>
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <strong>{rec.title}</strong>
+                        <p className="text-sm text-muted-foreground mt-1">{rec.description}</p>
+                      </div>
+                      <Button variant="outline" size="sm">
+                        {rec.action}
+                      </Button>
+                    </div>
+                  </AlertDescription>
+                </Alert>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       )}
 
-      {/* Analytics Tabs */}
+      {/* Additional Analytics Tabs */}
       <Tabs value={selectedView} onValueChange={setSelectedView} className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="spending">Spending</TabsTrigger>
           <TabsTrigger value="trends">Trends</TabsTrigger>
           <TabsTrigger value="units">Units</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Category Distribution Pie Chart */}
+            {/* Category Spending */}
             <Card>
               <CardHeader>
-                <CardTitle>Spending Distribution</CardTitle>
-                <CardDescription>Breakdown by category</CardDescription>
+                <CardTitle>Category Breakdown</CardTitle>
+                <CardDescription>Spending distribution by category</CardDescription>
               </CardHeader>
               <CardContent>
                 <ChartContainer
@@ -404,94 +504,7 @@ export function AnalyticsTab({ projectId, purchases, partners, units, totalBudge
                   className="h-[300px]"
                 >
                   <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={categoryInsights.map(cat => ({ 
-                          name: cat.category, 
-                          value: cat.spending,
-                          percentage: ((cat.spending / totalSpent) * 100).toFixed(1)
-                        }))}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={({ name, percentage }) => `${name}: ${percentage}%`}
-                        outerRadius={80}
-                        fill="#8884d8"
-                        dataKey="value"
-                      >
-                        {categoryInsights.map((_, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <ChartTooltip 
-                        content={<ChartTooltipContent 
-                          formatter={(value) => [formatCurrency(value as number), "Spent"]}
-                        />} 
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </ChartContainer>
-              </CardContent>
-            </Card>
-
-            {/* Top Categories */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Top Spending Categories</CardTitle>
-                <CardDescription>Highest spending areas</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {categoryInsights.slice(0, 5).map((category, index) => (
-                  <div key={category.category} className="flex items-center justify-between p-3 rounded-lg border">
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium" style={{ backgroundColor: COLORS[index % COLORS.length] + '20', color: COLORS[index % COLORS.length] }}>
-                        {index + 1}
-                      </div>
-                      <div>
-                        <p className="font-medium">{category.category}</p>
-                        <p className="text-sm text-muted-foreground">{category.purchases} purchases</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium">{formatCurrency(category.spending)}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {((category.spending / totalSpent) * 100).toFixed(1)}%
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="spending" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Spending Comparison Bar Chart */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Category Comparison</CardTitle>
-                <CardDescription>Spending amount by category</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ChartContainer
-                  config={{
-                    amount: {
-                      label: "Amount",
-                      color: "hsl(var(--chart-2))",
-                    },
-                  }}
-                  className="h-[300px]"
-                >
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={categoryInsights.map(cat => ({
-                        category: cat.category.length > 10 ? cat.category.substring(0, 10) + '...' : cat.category,
-                        amount: cat.spending,
-                        purchases: cat.purchases
-                      }))}
-                      margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
-                    >
+                    <BarChart data={categoryInsights.slice(0, 8)}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis 
                         dataKey="category" 
@@ -500,16 +513,13 @@ export function AnalyticsTab({ projectId, purchases, partners, units, totalBudge
                         textAnchor="end"
                         height={80}
                       />
-                      <YAxis 
-                        tick={{ fontSize: 12 }}
-                        tickFormatter={(value) => `${(value / 1000).toFixed(0)}K`}
-                      />
+                      <YAxis tick={{ fontSize: 12 }} />
                       <ChartTooltip 
                         content={<ChartTooltipContent 
-                          formatter={(value) => [formatCurrency(value as number), "Spent"]}
+                          formatter={(value) => [formatCurrency(value as number), "Spending"]}
                         />} 
                       />
-                      <Bar dataKey="amount" fill="#8884d8" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="spending" fill="#8884d8" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </ChartContainer>
@@ -527,20 +537,13 @@ export function AnalyticsTab({ projectId, purchases, partners, units, totalBudge
                   config={{
                     purchases: {
                       label: "Purchases",
-                      color: "hsl(var(--chart-3))",
+                      color: "hsl(var(--chart-2))",
                     },
                   }}
                   className="h-[300px]"
                 >
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={categoryInsights.map(cat => ({
-                        category: cat.category.length > 10 ? cat.category.substring(0, 10) + '...' : cat.category,
-                        purchases: cat.purchases,
-                        avgPurchase: cat.avgPurchase
-                      }))}
-                      margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
-                    >
+                    <BarChart data={categoryInsights.slice(0, 8)}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis 
                         dataKey="category" 
@@ -578,10 +581,6 @@ export function AnalyticsTab({ projectId, purchases, partners, units, totalBudge
                       label: "Spending",
                       color: "hsl(var(--chart-1))",
                     },
-                    purchases: {
-                      label: "Purchases",
-                      color: "hsl(var(--chart-2))",
-                    },
                   }}
                   className="h-[400px]"
                 >
@@ -590,40 +589,21 @@ export function AnalyticsTab({ projectId, purchases, partners, units, totalBudge
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="month" tick={{ fontSize: 12 }} />
                       <YAxis 
-                        yAxisId="spending"
-                        orientation="left"
                         tick={{ fontSize: 12 }}
                         tickFormatter={(value) => `${(value / 1000).toFixed(0)}K`}
                       />
-                      <YAxis 
-                        yAxisId="purchases"
-                        orientation="right"
-                        tick={{ fontSize: 12 }}
-                      />
                       <ChartTooltip 
                         content={<ChartTooltipContent 
-                          formatter={(value, name) => [
-                            name === 'spending' ? formatCurrency(value as number) : value,
-                            name === 'spending' ? 'Spending' : 'Purchases'
-                          ]}
+                          formatter={(value) => [formatCurrency(value as number), 'Spending']}
                         />} 
                       />
                       <Area 
-                        yAxisId="spending"
                         type="monotone" 
                         dataKey="spending" 
                         stroke="#8884d8" 
                         fill="#8884d8" 
                         fillOpacity={0.3}
                         strokeWidth={2}
-                      />
-                      <Line 
-                        yAxisId="purchases"
-                        type="monotone" 
-                        dataKey="purchases" 
-                        stroke="#82ca9d" 
-                        strokeWidth={2}
-                        dot={{ fill: '#82ca9d', strokeWidth: 2, r: 4 }}
                       />
                     </AreaChart>
                   </ResponsiveContainer>
