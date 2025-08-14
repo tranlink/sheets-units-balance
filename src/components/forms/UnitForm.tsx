@@ -73,7 +73,7 @@ export function UnitForm({ open, onOpenChange, onSubmit, partners, unit }: UnitF
       type: unit?.type || '',
       budget: unit?.budget || 0,
       status: unit?.status || 'Planning',
-      partner: unit?.partner || '',
+      partner: unit?.partner || 'none',
     },
   });
 
@@ -93,7 +93,7 @@ export function UnitForm({ open, onOpenChange, onSubmit, partners, unit }: UnitF
         type: unit.type,
         budget: unit.budget,
         status: unit.status,
-        partner: unit.partner || '',
+        partner: unit.partner || 'none',
       });
     } else {
       console.log('Resetting form to empty values');
@@ -102,7 +102,7 @@ export function UnitForm({ open, onOpenChange, onSubmit, partners, unit }: UnitF
         type: '',
         budget: 0,
         status: 'Planning',
-        partner: '',
+        partner: 'none',
       });
     }
   }, [unit, form]);
@@ -113,7 +113,7 @@ export function UnitForm({ open, onOpenChange, onSubmit, partners, unit }: UnitF
       type: data.type,
       budget: data.budget,
       status: data.status,
-      partner_id: data.partner,
+      partner_id: data.partner === 'none' ? undefined : data.partner,
     });
     form.reset();
     onOpenChange(false);
@@ -225,7 +225,7 @@ export function UnitForm({ open, onOpenChange, onSubmit, partners, unit }: UnitF
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="">No Partner</SelectItem>
+                      <SelectItem value="none">No Partner</SelectItem>
                       {partners.map((partner) => (
                         <SelectItem key={partner.id} value={partner.id}>
                           {partner.name}
