@@ -13,10 +13,12 @@ import {
   Plus,
   BarChart3,
   FileText,
-  UserPlus
+  UserPlus,
+  Settings
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Purchase, Unit, Partner, BudgetCategory, Alert } from '@/types/construction';
+import { ProjectSettings, ProjectSettingsForm } from '@/components/forms/ProjectSettingsForm';
 import { PurchaseForm } from '@/components/forms/PurchaseForm';
 import { UnitForm } from '@/components/forms/UnitForm';
 import { PartnerForm } from '@/components/forms/PartnerForm';
@@ -29,6 +31,12 @@ export default function ConstructionTracker() {
   const { toast } = useToast();
   
   // State management
+  const [projectSettings, setProjectSettings] = useState<ProjectSettings>({
+    name: 'Construction Cost Tracker',
+    description: 'Track your Airbnb construction costs',
+    totalBudget: 300000,
+    location: '',
+  });
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
   const [partners, setPartners] = useState<Partner[]>([]);
@@ -36,6 +44,7 @@ export default function ConstructionTracker() {
   const [showPurchaseForm, setShowPurchaseForm] = useState(false);
   const [showUnitForm, setShowUnitForm] = useState(false);
   const [showPartnerForm, setShowPartnerForm] = useState(false);
+  const [showProjectSettings, setShowProjectSettings] = useState(false);
   const [editingPartner, setEditingPartner] = useState<Partner | undefined>();
 
   // Sample data initialization
@@ -132,7 +141,7 @@ export default function ConstructionTracker() {
   }, []);
 
   // Calculate statistics
-  const totalBudget = units.reduce((sum, unit) => sum + unit.budget, 0);
+  const totalBudget = projectSettings.totalBudget;
   const totalSpent = purchases.reduce((sum, purchase) => sum + purchase.totalCost, 0);
   const activeUnits = units.filter(unit => unit.status === 'In Progress').length;
   const completedUnits = units.filter(unit => unit.status === 'Completed').length;
@@ -279,6 +288,14 @@ export default function ConstructionTracker() {
     setShowPartnerForm(true);
   };
 
+  const handleUpdateProjectSettings = (settings: ProjectSettings) => {
+    setProjectSettings(settings);
+    toast({
+      title: 'Project Settings Updated',
+      description: `Project "${settings.name}" has been updated successfully.`,
+    });
+  };
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-EG', {
       style: 'currency',
@@ -326,8 +343,21 @@ export default function ConstructionTracker() {
           <div className="flex items-center gap-3">
             <Building2 className="h-8 w-8 text-primary" />
             <div>
-              <h1 className="text-2xl font-bold text-card-foreground">Construction Cost Tracker</h1>
-              <p className="text-sm text-muted-foreground">Track your Airbnb construction costs</p>
+              <div className="flex items-center gap-2">
+                <h1 className="text-2xl font-bold text-card-foreground">{projectSettings.name}</h1>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowProjectSettings(true)}
+                  className="h-8 w-8 p-0"
+                >
+                  <Settings className="h-4 w-4" />
+                </Button>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {projectSettings.description}
+                {projectSettings.location && ` • ${projectSettings.location}`}
+              </p>
             </div>
           </div>
           <div className="flex gap-2">
@@ -476,6 +506,13 @@ export default function ConstructionTracker() {
         }}
         onSubmit={handleAddPartner}
         partner={editingPartner}
+      />
+
+      <ProjectSettingsForm
+        open={showProjectSettings}
+        onOpenChange={setShowProjectSettings}
+        onSubmit={handleUpdateProjectSettings}
+        currentSettings={projectSettings}
       />
     </div>
   );
