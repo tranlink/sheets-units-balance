@@ -836,7 +836,7 @@ export default function ConstructionTracker({ projectId }: ConstructionTrackerPr
                 unitPrice: p.unit_price,
                 totalCost: p.total_cost,
                 unit: p.unit_id,
-                partner_id: p.partner_id,
+                partner: p.partner_id, // Fix: use partner instead of partner_id
                 receipt: p.receipt_url
               }))}
               onEditPartner={handleEditPartner}
