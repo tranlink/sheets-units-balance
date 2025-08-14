@@ -64,9 +64,13 @@ Deno.serve(async (req) => {
   }
 
   try {
+    console.log('Starting Google Sheets sync function');
+    
     const { projectId, spreadsheetId } = await req.json();
+    console.log('Request data:', { projectId, spreadsheetId });
 
     if (!projectId || !spreadsheetId) {
+      console.error('Missing required parameters');
       return new Response(
         JSON.stringify({ error: 'Project ID and Spreadsheet ID are required' }),
         { 
@@ -84,6 +88,7 @@ Deno.serve(async (req) => {
     // Get Google Service Account credentials from secrets
     const googleCredentials = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON');
     if (!googleCredentials) {
+      console.error('Google Service Account credentials not found');
       return new Response(
         JSON.stringify({ error: 'Google Service Account credentials not configured' }),
         { 
@@ -93,66 +98,14 @@ Deno.serve(async (req) => {
       );
     }
 
-    const credentials = JSON.parse(googleCredentials);
-
-    // Create JWT token for Google Sheets API
-    const now = Math.floor(Date.now() / 1000);
-    const jwtHeader = {
-      alg: 'RS256',
-      typ: 'JWT'
-    };
-
-    const jwtPayload = {
-      iss: credentials.client_email,
-      scope: 'https://www.googleapis.com/auth/spreadsheets',
-      aud: 'https://oauth2.googleapis.com/token',
-      exp: now + 3600,
-      iat: now
-    };
-
-    // Import required libraries for JWT signing
-    const encoder = new TextEncoder();
-    const keyData = credentials.private_key.replace(/-----BEGIN PRIVATE KEY-----\n/, '')
-                                           .replace(/\n-----END PRIVATE KEY-----/, '')
-                                           .replace(/\n/g, '');
-    
-    const binaryKey = Uint8Array.from(atob(keyData), c => c.charCodeAt(0));
-    
-    const cryptoKey = await crypto.subtle.importKey(
-      'pkcs8',
-      binaryKey,
-      { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
-      false,
-      ['sign']
-    );
-
-    const headerB64 = btoa(JSON.stringify(jwtHeader)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
-    const payloadB64 = btoa(JSON.stringify(jwtPayload)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
-    const message = `${headerB64}.${payloadB64}`;
-    
-    const signature = await crypto.subtle.sign(
-      'RSASSA-PKCS1-v1_5',
-      cryptoKey,
-      encoder.encode(message)
-    );
-    
-    const signatureB64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
-                          .replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
-    
-    const jwt = `${message}.${signatureB64}`;
-
-    // Exchange JWT for access token
-    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`
-    });
-
-    const tokenData = await tokenResponse.json();
-    if (!tokenData.access_token) {
-      console.error('Token exchange failed:', tokenData);
+    let credentials;
+    try {
+      credentials = JSON.parse(googleCredentials);
+      console.log('Successfully parsed Google credentials');
+    } catch (e) {
+      console.error('Failed to parse Google credentials:', e);
       return new Response(
-        JSON.stringify({ error: 'Failed to authenticate with Google' }),
+        JSON.stringify({ error: 'Invalid Google Service Account credentials format' }),
         { 
           status: 500, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -186,39 +139,135 @@ Deno.serve(async (req) => {
     const units: Unit[] = unitsRes.data || [];
     const purchases: Purchase[] = purchasesRes.data || [];
 
+    console.log('Data fetched successfully:', {
+      projectName: project.name,
+      partnersCount: partners.length,
+      unitsCount: units.length,
+      purchasesCount: purchases.length
+    });
+
+    // Get access token using Google Service Account
+    const now = Math.floor(Date.now() / 1000);
+    const payload = {
+      "iss": credentials.client_email,
+      "scope": "https://www.googleapis.com/auth/spreadsheets",
+      "aud": "https://oauth2.googleapis.com/token",
+      "exp": now + 3600,
+      "iat": now
+    };
+
+    // Create JWT manually using Web Crypto API
+    const header = { "alg": "RS256", "typ": "JWT" };
+    
+    const textEncoder = new TextEncoder();
+    const headerEncoded = btoa(JSON.stringify(header))
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=/g, '');
+    
+    const payloadEncoded = btoa(JSON.stringify(payload))
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=/g, '');
+    
+    const unsignedToken = `${headerEncoded}.${payloadEncoded}`;
+    
+    // Import private key
+    const privateKeyPem = credentials.private_key;
+    const privateKeyDer = privateKeyPem
+      .replace(/-----BEGIN PRIVATE KEY-----/, '')
+      .replace(/-----END PRIVATE KEY-----/, '')
+      .replace(/\s/g, '');
+    
+    const privateKeyBytes = Uint8Array.from(atob(privateKeyDer), c => c.charCodeAt(0));
+    
+    const cryptoKey = await crypto.subtle.importKey(
+      'pkcs8',
+      privateKeyBytes,
+      {
+        name: 'RSASSA-PKCS1-v1_5',
+        hash: 'SHA-256',
+      },
+      false,
+      ['sign']
+    );
+
+    // Sign the token
+    const signature = await crypto.subtle.sign(
+      'RSASSA-PKCS1-v1_5',
+      cryptoKey,
+      textEncoder.encode(unsignedToken)
+    );
+
+    const signatureEncoded = btoa(String.fromCharCode(...new Uint8Array(signature)))
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=/g, '');
+
+    const jwt = `${unsignedToken}.${signatureEncoded}`;
+
+    console.log('JWT created successfully');
+
+    // Exchange JWT for access token
+    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        'grant_type': 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+        'assertion': jwt,
+      }),
+    });
+
+    const tokenData = await tokenResponse.json();
+    
+    if (!tokenData.access_token) {
+      console.error('Token exchange failed:', tokenData);
+      return new Response(
+        JSON.stringify({ error: 'Failed to authenticate with Google APIs' }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    console.log('Access token obtained successfully');
+
     // Format data for Google Sheets
     const formatDate = (dateString: string) => {
-      return new Date(dateString).toLocaleDateString();
+      return new Date(dateString).toLocaleDateString('en-US');
     };
 
     const formatCurrency = (amount: number) => {
       return `${amount.toLocaleString()} EGP`;
     };
 
-    // Prepare sheet data
+    // Prepare data for each sheet
     const sheetsData = [
       {
-        range: 'Project!A1:H20',
+        range: 'Project!A1',
         values: [
-          ['Project Information', '', '', '', '', '', '', ''],
-          ['Name', project.name, '', '', '', '', '', ''],
-          ['Description', project.description || 'N/A', '', '', '', '', '', ''],
-          ['Total Budget', formatCurrency(project.total_budget), '', '', '', '', '', ''],
-          ['Location', project.location || 'N/A', '', '', '', '', '', ''],
-          ['Categories', project.categories.join(', '), '', '', '', '', '', ''],
-          ['Created', formatDate(project.created_at), '', '', '', '', '', ''],
-          ['Last Updated', formatDate(project.updated_at), '', '', '', '', '', ''],
-          ['', '', '', '', '', '', '', ''],
-          ['Summary', '', '', '', '', '', '', ''],
-          ['Total Partners', partners.length.toString(), '', '', '', '', '', ''],
-          ['Total Units', units.length.toString(), '', '', '', '', '', ''],
-          ['Total Purchases', purchases.length.toString(), '', '', '', '', '', ''],
-          ['Total Spent', formatCurrency(purchases.reduce((sum, p) => sum + p.total_cost, 0)), '', '', '', '', '', ''],
-          ['Remaining Budget', formatCurrency(project.total_budget - purchases.reduce((sum, p) => sum + p.total_cost, 0)), '', '', '', '', '', '']
+          ['Project Information'],
+          ['Name', project.name],
+          ['Description', project.description || 'N/A'],
+          ['Total Budget', formatCurrency(project.total_budget)],
+          ['Location', project.location || 'N/A'],
+          ['Categories', project.categories.join(', ')],
+          ['Created', formatDate(project.created_at)],
+          ['Last Updated', formatDate(project.updated_at)],
+          [],
+          ['Summary'],
+          ['Total Partners', partners.length],
+          ['Total Units', units.length],
+          ['Total Purchases', purchases.length],
+          ['Total Spent', formatCurrency(purchases.reduce((sum, p) => sum + p.total_cost, 0))],
+          ['Remaining Budget', formatCurrency(project.total_budget - purchases.reduce((sum, p) => sum + p.total_cost, 0))]
         ]
       },
       {
-        range: 'Partners!A1:H100',
+        range: 'Partners!A1',
         values: [
           ['ID', 'Name', 'Email', 'Phone', 'Contribution', 'Status', 'Created', 'Updated'],
           ...partners.map(p => [
@@ -234,7 +283,7 @@ Deno.serve(async (req) => {
         ]
       },
       {
-        range: 'Units!A1:I100',
+        range: 'Units!A1',
         values: [
           ['ID', 'Name', 'Type', 'Budget', 'Status', 'Partner', 'Completion Date', 'Created', 'Updated'],
           ...units.map(u => [
@@ -251,7 +300,7 @@ Deno.serve(async (req) => {
         ]
       },
       {
-        range: 'Purchases!A1:M200',
+        range: 'Purchases!A1',
         values: [
           ['ID', 'Date', 'Category', 'Description', 'Unit', 'Partner', 'Quantity', 'Unit Price', 'Total Cost', 'Receipt', 'Created', 'Updated'],
           ...purchases.map(p => [
@@ -261,7 +310,7 @@ Deno.serve(async (req) => {
             p.description,
             p.unit_id ? units.find(u => u.id === p.unit_id)?.name || 'N/A' : 'N/A',
             p.partner_id ? partners.find(pr => pr.id === p.partner_id)?.name || 'N/A' : 'N/A',
-            p.quantity.toString(),
+            p.quantity,
             formatCurrency(p.unit_price),
             formatCurrency(p.total_cost),
             p.receipt_url || 'N/A',
@@ -272,24 +321,22 @@ Deno.serve(async (req) => {
       }
     ];
 
-    // Update Google Sheets
-    const batchUpdateUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchUpdate`;
-    
-    const response = await fetch(batchUpdateUrl, {
+    // Update all sheets with data
+    const updateResponse = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchUpdate`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${tokenData.access_token}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         valueInputOption: 'USER_ENTERED',
         data: sheetsData
-      })
+      }),
     });
 
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error('Google Sheets API error:', errorData);
+    if (!updateResponse.ok) {
+      const errorText = await updateResponse.text();
+      console.error('Google Sheets update failed:', errorText);
       return new Response(
         JSON.stringify({ error: 'Failed to update Google Sheets' }),
         { 
@@ -299,7 +346,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log('Successfully synced data to Google Sheets');
+    console.log('Successfully updated Google Sheets');
 
     return new Response(
       JSON.stringify({ 
@@ -315,7 +362,7 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('Error in sync-google-sheets function:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
+      JSON.stringify({ error: `Internal server error: ${error.message}` }),
       { 
         status: 500, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
