@@ -45,8 +45,8 @@ export function PurchasesTable({ purchases, units, partners, categories = [] }: 
       const matchesCategory = selectedCategory === 'all' || purchase.category === selectedCategory;
       const matchesUnit = selectedUnit === 'all' || purchase.unit === selectedUnit || 
                          (selectedUnit === 'general' && !purchase.unit);
-      const matchesPartner = selectedPartner === 'all' || purchase.partner === selectedPartner ||
-                           (selectedPartner === 'none' && !purchase.partner);
+      const matchesPartner = selectedPartner === 'all' || purchase.partner_id === selectedPartner ||
+                           (selectedPartner === 'none' && !purchase.partner_id);
 
       return matchesSearch && matchesCategory && matchesUnit && matchesPartner;
     });
@@ -218,7 +218,7 @@ export function PurchasesTable({ purchases, units, partners, categories = [] }: 
                     <TableCell className="font-medium">
                       {formatCurrency(purchase.totalCost)}
                     </TableCell>
-                    <TableCell>{getPartnerName(purchase.partner)}</TableCell>
+                    <TableCell>{getPartnerName(purchase.partner_id)}</TableCell>
                   </TableRow>
                 ))
               )}

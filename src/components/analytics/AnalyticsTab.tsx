@@ -145,7 +145,7 @@ export function AnalyticsTab({ projectId, purchases, partners, units, totalBudge
   // Calculate partner spending share
   const getPartnerSpendingData = () => {
     const partnerSpending = partners.map(partner => {
-      const partnerPurchases = filteredPurchases.filter(p => p.partner === partner.name);
+      const partnerPurchases = filteredPurchases.filter(p => p.partner_id === partner.id);
       const totalSpent = partnerPurchases.reduce((sum, p) => sum + p.totalCost, 0);
       const purchaseCount = partnerPurchases.length;
       
@@ -160,7 +160,7 @@ export function AnalyticsTab({ projectId, purchases, partners, units, totalBudge
       .sort((a, b) => b.totalSpent - a.totalSpent);
 
     // Add "Unassigned" for purchases without partner
-    const unassignedPurchases = filteredPurchases.filter(p => !p.partner);
+    const unassignedPurchases = filteredPurchases.filter(p => !p.partner_id);
     const unassignedSpent = unassignedPurchases.reduce((sum, p) => sum + p.totalCost, 0);
     
     // Calculate total spending for percentage calculation

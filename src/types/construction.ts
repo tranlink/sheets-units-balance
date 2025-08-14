@@ -7,7 +7,7 @@ export interface Purchase {
   unitPrice: number;
   totalCost: number;
   unit?: string;
-  partner?: string;
+  partner_id?: string;
   receipt?: string;
 }
 
