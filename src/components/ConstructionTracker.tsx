@@ -452,6 +452,44 @@ export default function ConstructionTracker() {
     }
   };
 
+  const handleSyncToGoogleSheets = async () => {
+    if (!currentProject) return;
+    
+    const spreadsheetId = prompt('Enter your Google Sheet ID (from the URL):');
+    if (!spreadsheetId) return;
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-google-sheets', {
+        body: {
+          projectId: currentProject.id,
+          spreadsheetId: spreadsheetId
+        }
+      });
+
+      if (error) {
+        console.error('Sync error:', error);
+        toast({
+          title: "Sync Failed",
+          description: "Failed to sync data to Google Sheets. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "Sync Successful",
+        description: "Project data has been synced to Google Sheets with separate tabs for Project, Partners, Units, and Purchases.",
+      });
+    } catch (error) {
+      console.error('Error syncing to Google Sheets:', error);
+      toast({
+        title: "Sync Failed",
+        description: "Failed to sync data to Google Sheets. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-EG', {
       style: 'currency',
@@ -532,6 +570,10 @@ export default function ConstructionTracker() {
             <Button onClick={handleExportToExcel} variant="outline">
               <Download className="h-4 w-4 mr-2" />
               Export Excel
+            </Button>
+            <Button onClick={handleSyncToGoogleSheets} variant="outline">
+              <Download className="h-4 w-4 mr-2" />
+              Sync Google Sheets
             </Button>
             <Button onClick={handleLogout} variant="ghost" size="sm">
               Logout
