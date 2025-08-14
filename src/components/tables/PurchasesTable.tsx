@@ -100,16 +100,8 @@ export function PurchasesTable({ purchases, units, partners, categories = [], on
   const handleEditPurchase = async (purchaseData: any) => {
     if (!editingPurchase || !onUpdatePurchase) return;
     
-    await onUpdatePurchase(editingPurchase.id, {
-      date: purchaseData.date,
-      category: purchaseData.category,
-      description: purchaseData.description,
-      quantity: purchaseData.quantity,
-      unitPrice: purchaseData.unit_price,
-      totalCost: purchaseData.quantity * purchaseData.unit_price,
-      partner_id: purchaseData.partner_id || null,
-      unit: purchaseData.unit_id || null,
-    });
+    // Pass the data in the format expected by the backend
+    await onUpdatePurchase(editingPurchase.id, purchaseData);
     setEditingPurchase(null);
   };
 
