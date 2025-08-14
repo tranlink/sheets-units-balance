@@ -38,11 +38,14 @@ const ProjectsPage = () => {
 
   const handleCreateProject = async (projectData: any) => {
     try {
+      console.log('Creating project with data:', projectData);
       const { data, error } = await supabase
         .from('projects')
         .insert([projectData])
         .select()
         .single();
+
+      console.log('Project creation result:', { data, error });
 
       if (error) throw error;
 
@@ -53,6 +56,7 @@ const ProjectsPage = () => {
         description: "Project created successfully",
       });
     } catch (error) {
+      console.error('Project creation error:', error);
       toast({
         title: "Error",
         description: "Failed to create project",

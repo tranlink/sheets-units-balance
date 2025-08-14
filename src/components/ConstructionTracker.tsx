@@ -481,6 +481,7 @@ export default function ConstructionTracker({ projectId }: ConstructionTrackerPr
     partner_id?: string;
   }) => {
     try {
+      console.log('Updating purchase with:', { id, updates });
       const dbUpdates: any = {};
       if (updates.date) dbUpdates.date = updates.date;
       if (updates.category) dbUpdates.category = updates.category;
@@ -499,6 +500,8 @@ export default function ConstructionTracker({ projectId }: ConstructionTrackerPr
           dbUpdates.total_cost = quantity * unitPrice;
         }
       }
+      
+      console.log('Database updates being sent:', dbUpdates);
       
       const updatedPurchase = await updatePurchase(id, dbUpdates);
       setPurchases(prev => prev.map(p => p.id === id ? updatedPurchase : p));
