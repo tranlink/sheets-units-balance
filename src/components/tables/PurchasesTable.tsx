@@ -11,22 +11,27 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
 import { Purchase } from '@/types/construction';
 import { format } from 'date-fns';
-import { Search, Filter } from 'lucide-react';
+import { Search, Filter, Edit, Trash2 } from 'lucide-react';
+import { EditPurchaseDialog } from './EditPurchaseDialog';
 
 interface PurchasesTableProps {
   purchases: Purchase[];
   units: Array<{ id: string; name: string }>;
   partners: Array<{ id: string; name: string }>;
   categories?: string[];
+  onUpdatePurchase?: (id: string, updates: Partial<Purchase>) => Promise<void>;
+  onDeletePurchase?: (id: string) => Promise<void>;
 }
 
-export function PurchasesTable({ purchases, units, partners, categories = [] }: PurchasesTableProps) {
+export function PurchasesTable({ purchases, units, partners, categories = [], onUpdatePurchase, onDeletePurchase }: PurchasesTableProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedUnit, setSelectedUnit] = useState<string>('all');
   const [selectedPartner, setSelectedPartner] = useState<string>('all');
+  const [editingPurchase, setEditingPurchase] = useState<Purchase | null>(null);
 
   const getUnitName = (unitId?: string) => {
     if (!unitId) return 'General';
@@ -91,6 +96,29 @@ export function PurchasesTable({ purchases, units, partners, categories = [] }: 
 
   const totalAmount = filteredPurchases.reduce((sum, purchase) => sum + purchase.totalCost, 0);
   const totalFilteredAmount = filteredPurchases.reduce((sum, purchase) => sum + purchase.totalCost, 0);
+
+  const handleEditPurchase = async (purchaseData: any) => {
+    if (!editingPurchase || !onUpdatePurchase) return;
+    
+    await onUpdatePurchase(editingPurchase.id, {
+      date: purchaseData.date,
+      category: purchaseData.category,
+      description: purchaseData.description,
+      quantity: purchaseData.quantity,
+      unitPrice: purchaseData.unit_price,
+      totalCost: purchaseData.quantity * purchaseData.unit_price,
+      partner_id: purchaseData.partner_id || null,
+      unit: purchaseData.unit_id || null,
+    });
+    setEditingPurchase(null);
+  };
+
+  const handleDeletePurchase = async (purchaseId: string) => {
+    if (!onDeletePurchase) return;
+    if (window.confirm('Are you sure you want to delete this purchase?')) {
+      await onDeletePurchase(purchaseId);
+    }
+  };
 
   return (
     <Card>
@@ -183,12 +211,13 @@ export function PurchasesTable({ purchases, units, partners, categories = [] }: 
                 <TableHead>Unit Price</TableHead>
                 <TableHead>Total</TableHead>
                 <TableHead>Partner</TableHead>
+                {(onUpdatePurchase || onDeletePurchase) && <TableHead>Actions</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredPurchases.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={onUpdatePurchase || onDeletePurchase ? 9 : 8} className="text-center py-8 text-muted-foreground">
                     {purchases.length === 0 
                       ? "No purchases recorded yet. Click \"Add New Purchase\" to get started."
                       : "No purchases match your current filters."
@@ -219,12 +248,48 @@ export function PurchasesTable({ purchases, units, partners, categories = [] }: 
                       {formatCurrency(purchase.totalCost)}
                     </TableCell>
                     <TableCell>{getPartnerName(purchase.partner_id)}</TableCell>
+                    {(onUpdatePurchase || onDeletePurchase) && (
+                      <TableCell>
+                        <div className="flex gap-2">
+                          {onUpdatePurchase && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setEditingPurchase(purchase)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {onDeletePurchase && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeletePurchase(purchase.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))
               )}
             </TableBody>
           </Table>
         </div>
+        
+        {editingPurchase && (
+          <EditPurchaseDialog
+            purchase={editingPurchase}
+            open={!!editingPurchase}
+            onOpenChange={(open) => !open && setEditingPurchase(null)}
+            onSubmit={handleEditPurchase}
+            units={units}
+            partners={partners}
+            categories={categories}
+          />
+        )}
       </CardContent>
     </Card>
   );

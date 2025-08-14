@@ -30,9 +30,9 @@ import {
   createProject, updateProject, getProjects,
   createPartner, updatePartner, getPartners,
   createUnit, updateUnit, getUnits,
-  createPurchase, getPurchases
+  createPurchase, updatePurchase, getPurchases
 } from '@/lib/database';
-import { BudgetCategory, Alert } from '@/types/construction';
+import { BudgetCategory, Alert, Purchase } from '@/types/construction';
 import { ProjectSettings, ProjectSettingsForm } from '@/components/forms/ProjectSettingsForm';
 import { PurchaseForm } from '@/components/forms/PurchaseForm';
 import { UnitForm } from '@/components/forms/UnitForm';
@@ -471,6 +471,60 @@ export default function ConstructionTracker({ projectId }: ConstructionTrackerPr
     }
   };
 
+  const handleUpdatePurchase = async (id: string, updates: Partial<Purchase>) => {
+    try {
+      const dbUpdates: any = {};
+      if (updates.date) dbUpdates.date = updates.date;
+      if (updates.category) dbUpdates.category = updates.category;
+      if (updates.description) dbUpdates.description = updates.description;
+      if (updates.quantity !== undefined) dbUpdates.quantity = updates.quantity;
+      if (updates.unitPrice !== undefined) dbUpdates.unit_price = updates.unitPrice;
+      if (updates.totalCost !== undefined) dbUpdates.total_cost = updates.totalCost;
+      if (updates.partner_id !== undefined) dbUpdates.partner_id = updates.partner_id;
+      if (updates.unit !== undefined) dbUpdates.unit_id = updates.unit;
+      
+      const updatedPurchase = await updatePurchase(id, dbUpdates);
+      setPurchases(prev => prev.map(p => p.id === id ? updatedPurchase : p));
+      
+      toast({
+        title: 'Purchase Updated',
+        description: 'Purchase has been updated successfully.',
+      });
+    } catch (error) {
+      console.error('Error updating purchase:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update purchase. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleDeletePurchase = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('purchases')
+        .delete()
+        .eq('id', id);
+        
+      if (error) throw error;
+      
+      setPurchases(prev => prev.filter(p => p.id !== id));
+      
+      toast({
+        title: 'Purchase Deleted',
+        description: 'Purchase has been deleted successfully.',
+      });
+    } catch (error) {
+      console.error('Error deleting purchase:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete purchase. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const handleSyncToGoogleSheets = async () => {
     if (!currentProject) return;
     
@@ -680,7 +734,7 @@ export default function ConstructionTracker({ projectId }: ConstructionTrackerPr
                   unitPrice: p.unit_price,
                   totalCost: p.total_cost,
                   unit: p.unit_id,
-                  partner: p.partner_id,
+                  partner_id: p.partner_id,
                   receipt: p.receipt_url
                 }))} 
                 units={units.map(u => ({ id: u.id, name: u.name }))} 
@@ -713,12 +767,14 @@ export default function ConstructionTracker({ projectId }: ConstructionTrackerPr
                 unitPrice: p.unit_price,
                 totalCost: p.total_cost,
                 unit: p.unit_id,
-                partner: p.partner_id,
+                partner_id: p.partner_id,
                 receipt: p.receipt_url
               }))} 
               units={units.map(u => ({ id: u.id, name: u.name }))} 
               partners={partners.map(p => ({ id: p.id, name: p.name }))}
-              categories={currentProject.categories} 
+              categories={currentProject.categories}
+              onUpdatePurchase={handleUpdatePurchase}
+              onDeletePurchase={handleDeletePurchase}
             />
           </TabsContent>
 
@@ -758,7 +814,7 @@ export default function ConstructionTracker({ projectId }: ConstructionTrackerPr
                 unitPrice: p.unit_price,
                 totalCost: p.total_cost,
                 unit: p.unit_id,
-                partner: p.partner_id,
+                partner_id: p.partner_id,
                 receipt: p.receipt_url
               }))}
               onEditPartner={handleEditPartner}
@@ -781,7 +837,7 @@ export default function ConstructionTracker({ projectId }: ConstructionTrackerPr
                 unitPrice: p.unit_price,
                 totalCost: p.total_cost,
                 unit: p.unit_id,
-                partner: p.partner_id,
+                partner_id: p.partner_id,
                 receipt: p.receipt_url
               }))}
               partners={partners.map(p => ({
