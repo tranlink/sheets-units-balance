@@ -178,8 +178,8 @@ export default function ConstructionTracker() {
         getPurchases(project.id)
       ]);
       
-      setPartners(partnersData);
-      setUnits(unitsData);
+      setPartners(partnersData as DBPartner[]);
+      setUnits(unitsData as DBUnit[]);
       setPurchases(purchasesData);
       
     } catch (error) {
@@ -248,7 +248,7 @@ export default function ConstructionTracker() {
     };
   });
 
-  // Handlers
+  
   const handleAddPurchase = async (purchaseData: {
     date: string;
     category: string;
@@ -331,7 +331,7 @@ export default function ConstructionTracker() {
         // Update existing partner
         const updatedPartner = await updatePartner(editingPartner.id, partnerData);
         setPartners(prev => prev.map(p => 
-          p.id === editingPartner.id ? updatedPartner : p
+          p.id === editingPartner.id ? updatedPartner as DBPartner : p
         ));
         toast({
           title: 'Partner Updated',
@@ -346,7 +346,7 @@ export default function ConstructionTracker() {
           status: 'Active'
         });
         
-        setPartners(prev => [...prev, newPartner]);
+        setPartners(prev => [...prev, newPartner as DBPartner]);
         toast({
           title: 'Partner Added',
           description: `Added new partner: ${partnerData.name}`,
@@ -375,7 +375,7 @@ export default function ConstructionTracker() {
         ...unitData
       });
       
-      setUnits(prev => [...prev, newUnit]);
+      setUnits(prev => [...prev, newUnit as DBUnit]);
       toast({
         title: 'Unit Created',
         description: `Created new unit: ${unitData.name}`,
@@ -390,8 +390,20 @@ export default function ConstructionTracker() {
     }
   };
 
-  const handleEditPartner = (partner: DBPartner) => {
-    setEditingPartner(partner);
+  const handleEditPartner = (partner: any) => {
+    // Convert table partner format to DBPartner format
+    const dbPartner: DBPartner = {
+      id: partner.id,
+      name: partner.name,
+      email: partner.email,
+      phone: partner.phone,
+      total_contribution: partner.totalContribution,
+      status: partner.status,
+      created_at: partner.created_at || '',
+      updated_at: partner.updated_at || '',
+      project_id: partner.project_id || currentProject.id
+    };
+    setEditingPartner(dbPartner);
     setShowPartnerForm(true);
   };
 
@@ -562,7 +574,18 @@ export default function ConstructionTracker() {
           <TabsContent value="overview" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <PurchasesTable 
-                purchases={purchases.slice(0, 5)} 
+                purchases={purchases.slice(0, 5).map(p => ({
+                  id: p.id,
+                  date: p.date,
+                  category: p.category,
+                  description: p.description,
+                  quantity: p.quantity,
+                  unitPrice: p.unit_price,
+                  totalCost: p.total_cost,
+                  unit: p.unit_id,
+                  partner: p.partner_id,
+                  receipt: p.receipt_url
+                }))} 
                 units={units.map(u => ({ id: u.id, name: u.name }))} 
                 partners={partners.map(p => ({ id: p.id, name: p.name }))}
                 categories={currentProject.categories}
@@ -584,7 +607,18 @@ export default function ConstructionTracker() {
 
           <TabsContent value="purchases">
             <PurchasesTable 
-              purchases={purchases} 
+              purchases={purchases.map(p => ({
+                id: p.id,
+                date: p.date,
+                category: p.category,
+                description: p.description,
+                quantity: p.quantity,
+                unitPrice: p.unit_price,
+                totalCost: p.total_cost,
+                unit: p.unit_id,
+                partner: p.partner_id,
+                receipt: p.receipt_url
+              }))} 
               units={units.map(u => ({ id: u.id, name: u.name }))} 
               partners={partners.map(p => ({ id: p.id, name: p.name }))}
               categories={currentProject.categories} 
