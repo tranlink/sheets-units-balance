@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -49,6 +49,7 @@ interface UnitFormProps {
     partner_id?: string;
   }) => void;
   partners: Array<{ id: string; name: string }>;
+  unit?: Unit;
 }
 
 const unitTypes = [
@@ -62,14 +63,49 @@ const unitTypes = [
   'Other',
 ];
 
-export function UnitForm({ open, onOpenChange, onSubmit, partners }: UnitFormProps) {
+export function UnitForm({ open, onOpenChange, onSubmit, partners, unit }: UnitFormProps) {
+  console.log('UnitForm rendered with unit:', unit);
+  
   const form = useForm<UnitFormData>({
     resolver: zodResolver(unitSchema),
     defaultValues: {
-      budget: 0,
-      status: 'Planning',
+      name: unit?.name || '',
+      type: unit?.type || '',
+      budget: unit?.budget || 0,
+      status: unit?.status || 'Planning',
+      partner: unit?.partner || '',
     },
   });
+
+  // Reset form when unit changes
+  useEffect(() => {
+    console.log('UnitForm useEffect triggered with unit:', unit);
+    if (unit) {
+      console.log('Resetting form with unit data:', {
+        name: unit.name,
+        type: unit.type,
+        budget: unit.budget,
+        status: unit.status,
+        partner: unit.partner || '',
+      });
+      form.reset({
+        name: unit.name,
+        type: unit.type,
+        budget: unit.budget,
+        status: unit.status,
+        partner: unit.partner || '',
+      });
+    } else {
+      console.log('Resetting form to empty values');
+      form.reset({
+        name: '',
+        type: '',
+        budget: 0,
+        status: 'Planning',
+        partner: '',
+      });
+    }
+  }, [unit, form]);
 
   const handleSubmit = (data: UnitFormData) => {
     onSubmit({
@@ -87,9 +123,9 @@ export function UnitForm({ open, onOpenChange, onSubmit, partners }: UnitFormPro
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Create New Unit</DialogTitle>
+          <DialogTitle>{unit ? 'Edit Unit' : 'Create New Unit'}</DialogTitle>
           <DialogDescription>
-            Add a new construction unit to track costs and progress.
+            {unit ? 'Update unit information and settings.' : 'Add a new construction unit to track costs and progress.'}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -114,7 +150,7 @@ export function UnitForm({ open, onOpenChange, onSubmit, partners }: UnitFormPro
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Unit Type</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select unit type" />
@@ -158,7 +194,7 @@ export function UnitForm({ open, onOpenChange, onSubmit, partners }: UnitFormPro
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Status</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select status" />
@@ -182,13 +218,14 @@ export function UnitForm({ open, onOpenChange, onSubmit, partners }: UnitFormPro
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Partner (Optional)</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select partner" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
+                      <SelectItem value="">No Partner</SelectItem>
                       {partners.map((partner) => (
                         <SelectItem key={partner.id} value={partner.id}>
                           {partner.name}
@@ -205,7 +242,7 @@ export function UnitForm({ open, onOpenChange, onSubmit, partners }: UnitFormPro
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
-              <Button type="submit">Create Unit</Button>
+              <Button type="submit">{unit ? 'Update Unit' : 'Create Unit'}</Button>
             </div>
           </form>
         </Form>

@@ -13,14 +13,16 @@ import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Unit } from '@/types/construction';
-import { Search, Filter } from 'lucide-react';
+import { Search, Filter, Edit } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface UnitsTableProps {
   units: Unit[];
   partners: Array<{ id: string; name: string }>;
+  onEditUnit?: (unit: Unit) => void;
 }
 
-export function UnitsTable({ units, partners }: UnitsTableProps) {
+export function UnitsTable({ units, partners, onEditUnit }: UnitsTableProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedType, setSelectedType] = useState<string>('all');
@@ -167,12 +169,13 @@ export function UnitsTable({ units, partners }: UnitsTableProps) {
                 <TableHead>Budget Usage</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Partner</TableHead>
+                {onEditUnit && <TableHead>Actions</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredUnits.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={onEditUnit ? 8 : 7} className="text-center py-8 text-muted-foreground">
                     {units.length === 0 
                       ? "No units created yet. Click \"Create New Unit\" to get started."
                       : "No units match your current filters."
@@ -205,6 +208,22 @@ export function UnitsTable({ units, partners }: UnitsTableProps) {
                         </Badge>
                       </TableCell>
                       <TableCell>{getPartnerName(unit.partner)}</TableCell>
+                      {onEditUnit && (
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              console.log('Unit edit button clicked for:', unit);
+                              onEditUnit(unit);
+                            }}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      )}
                     </TableRow>
                   );
                 })

@@ -130,6 +130,7 @@ export default function ConstructionTracker({ projectId }: ConstructionTrackerPr
   const [showPartnerForm, setShowPartnerForm] = useState(false);
   const [showProjectSettings, setShowProjectSettings] = useState(false);
   const [editingPartner, setEditingPartner] = useState<DBPartner | undefined>();
+  const [editingUnit, setEditingUnit] = useState<DBUnit | undefined>();
 
   // Check for authentication session
   useEffect(() => {
@@ -391,21 +392,35 @@ export default function ConstructionTracker({ projectId }: ConstructionTrackerPr
     partner_id?: string;
   }) => {
     try {
-      const newUnit = await createUnit({
-        project_id: currentProject.id,
-        ...unitData
-      });
-      
-      setUnits(prev => [...prev, newUnit as DBUnit]);
-      toast({
-        title: 'Unit Created',
-        description: `Created new unit: ${unitData.name}`,
-      });
+      if (editingUnit) {
+        // Update existing unit
+        const updatedUnit = await updateUnit(editingUnit.id, unitData);
+        setUnits(prev => prev.map(u => 
+          u.id === editingUnit.id ? updatedUnit as DBUnit : u
+        ));
+        toast({
+          title: 'Unit Updated',
+          description: `Updated unit: ${unitData.name}`,
+        });
+        setEditingUnit(undefined);
+      } else {
+        // Add new unit
+        const newUnit = await createUnit({
+          project_id: currentProject.id,
+          ...unitData
+        });
+        
+        setUnits(prev => [...prev, newUnit as DBUnit]);
+        toast({
+          title: 'Unit Created',
+          description: `Created new unit: ${unitData.name}`,
+        });
+      }
     } catch (error) {
-      console.error('Error adding unit:', error);
+      console.error('Error managing unit:', error);
       toast({
         title: 'Error',
-        description: 'Failed to add unit. Please try again.',
+        description: 'Failed to manage unit. Please try again.',
         variant: 'destructive',
       });
     }
@@ -420,6 +435,18 @@ export default function ConstructionTracker({ projectId }: ConstructionTrackerPr
       setEditingPartner(dbPartner);
       setShowPartnerForm(true);
       console.log('Set editing partner to:', dbPartner);
+    }
+  };
+
+  const handleEditUnit = (unit: any) => {
+    console.log('Edit unit clicked with:', unit);
+    // Find the original unit from the database
+    const dbUnit = units.find(u => u.id === unit.id);
+    console.log('Found DB unit:', dbUnit);
+    if (dbUnit) {
+      setEditingUnit(dbUnit);
+      setShowUnitForm(true);
+      console.log('Set editing unit to:', dbUnit);
     }
   };
 
@@ -777,6 +804,7 @@ export default function ConstructionTracker({ projectId }: ConstructionTrackerPr
                   partner: u.partner_id
                 }))} 
                 partners={partners.map(p => ({ id: p.id, name: p.name }))} 
+                onEditUnit={handleEditUnit}
               />
             </div>
           </TabsContent>
@@ -815,6 +843,7 @@ export default function ConstructionTracker({ projectId }: ConstructionTrackerPr
                 partner: u.partner_id
               }))} 
               partners={partners.map(p => ({ id: p.id, name: p.name }))} 
+              onEditUnit={handleEditUnit}
             />
           </TabsContent>
 
@@ -903,9 +932,22 @@ export default function ConstructionTracker({ projectId }: ConstructionTrackerPr
 
       <UnitForm
         open={showUnitForm}
-        onOpenChange={setShowUnitForm}
+        onOpenChange={(open) => {
+          setShowUnitForm(open);
+          if (!open) setEditingUnit(undefined);
+        }}
         onSubmit={handleAddUnit}
         partners={partners.map(p => ({ id: p.id, name: p.name }))}
+        unit={editingUnit ? {
+          id: editingUnit.id,
+          name: editingUnit.name,
+          type: editingUnit.type,
+          budget: editingUnit.budget,
+          actualCost: 0, // Not used in form
+          status: editingUnit.status as 'Planning' | 'In Progress' | 'Completed' | 'On Hold',
+          partner: editingUnit.partner_id,
+          completionDate: editingUnit.completion_date
+        } : undefined}
       />
 
       <PartnerForm
