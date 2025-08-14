@@ -52,6 +52,8 @@ interface PartnerFormProps {
 }
 
 export function PartnerForm({ open, onOpenChange, onSubmit, partner }: PartnerFormProps) {
+  console.log('PartnerForm rendered with partner:', partner);
+  
   const form = useForm<PartnerFormData>({
     resolver: zodResolver(partnerSchema),
     defaultValues: {
@@ -64,7 +66,14 @@ export function PartnerForm({ open, onOpenChange, onSubmit, partner }: PartnerFo
 
   // Reset form when partner changes
   useEffect(() => {
+    console.log('PartnerForm useEffect triggered with partner:', partner);
     if (partner) {
+      console.log('Resetting form with partner data:', {
+        name: partner.name,
+        email: partner.email,
+        phone: partner.phone,
+        totalContribution: partner.totalContribution,
+      });
       form.reset({
         name: partner.name,
         email: partner.email,
@@ -72,6 +81,7 @@ export function PartnerForm({ open, onOpenChange, onSubmit, partner }: PartnerFo
         totalContribution: partner.totalContribution,
       });
     } else {
+      console.log('Resetting form to empty values');
       form.reset({
         name: '',
         email: '',

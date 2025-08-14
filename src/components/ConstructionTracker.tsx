@@ -412,11 +412,14 @@ export default function ConstructionTracker({ projectId }: ConstructionTrackerPr
   };
 
   const handleEditPartner = (partner: any) => {
+    console.log('Edit partner clicked with:', partner);
     // Find the original partner from the database
     const dbPartner = partners.find(p => p.id === partner.id);
+    console.log('Found DB partner:', dbPartner);
     if (dbPartner) {
       setEditingPartner(dbPartner);
       setShowPartnerForm(true);
+      console.log('Set editing partner to:', dbPartner);
     }
   };
 
