@@ -81,12 +81,34 @@ Deno.serve(async (req) => {
     }
 
     // Initialize Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    
+    console.log('Environment check:', { 
+      hasUrl: !!supabaseUrl, 
+      hasKey: !!supabaseKey 
+    });
+
+    if (!supabaseUrl || !supabaseKey) {
+      console.error('Missing Supabase environment variables');
+      return new Response(
+        JSON.stringify({ error: 'Missing Supabase configuration' }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Get Google Service Account credentials from secrets
     const googleCredentials = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON');
+    console.log('Google credentials check:', { 
+      hasCredentials: !!googleCredentials,
+      credentialsLength: googleCredentials?.length || 0
+    });
+    
     if (!googleCredentials) {
       console.error('Google Service Account credentials not found');
       return new Response(
@@ -101,9 +123,9 @@ Deno.serve(async (req) => {
     let credentials;
     try {
       credentials = JSON.parse(googleCredentials);
-      console.log('Successfully parsed Google credentials');
+      console.log('Successfully parsed Google credentials, client_email:', credentials.client_email);
     } catch (e) {
-      console.error('Failed to parse Google credentials:', e);
+      console.error('Failed to parse Google credentials:', e.message);
       return new Response(
         JSON.stringify({ error: 'Invalid Google Service Account credentials format' }),
         { 
@@ -112,6 +134,24 @@ Deno.serve(async (req) => {
         }
       );
     }
+
+    // Test: Just return success for now to see if we get this far
+    console.log('Reached test point - returning success');
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        message: 'Test successful - basic setup working',
+        debug: {
+          projectId,
+          spreadsheetId,
+          hasCredentials: true,
+          clientEmail: credentials.client_email
+        }
+      }),
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    );
 
     // Fetch data from Supabase
     console.log('Fetching project data for:', projectId);
