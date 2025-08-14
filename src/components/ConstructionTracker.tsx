@@ -471,17 +471,34 @@ export default function ConstructionTracker({ projectId }: ConstructionTrackerPr
     }
   };
 
-  const handleUpdatePurchase = async (id: string, updates: Partial<Purchase>) => {
+  const handleUpdatePurchase = async (id: string, updates: {
+    date?: string;
+    category?: string;
+    description?: string;
+    quantity?: number;
+    unit_price?: number;
+    unit_id?: string;
+    partner_id?: string;
+  }) => {
     try {
       const dbUpdates: any = {};
       if (updates.date) dbUpdates.date = updates.date;
       if (updates.category) dbUpdates.category = updates.category;
       if (updates.description) dbUpdates.description = updates.description;
       if (updates.quantity !== undefined) dbUpdates.quantity = updates.quantity;
-      if (updates.unitPrice !== undefined) dbUpdates.unit_price = updates.unitPrice;
-      if (updates.totalCost !== undefined) dbUpdates.total_cost = updates.totalCost;
+      if (updates.unit_price !== undefined) dbUpdates.unit_price = updates.unit_price;
       if (updates.partner_id !== undefined) dbUpdates.partner_id = updates.partner_id;
-      if (updates.unit !== undefined) dbUpdates.unit_id = updates.unit;
+      if (updates.unit_id !== undefined) dbUpdates.unit_id = updates.unit_id;
+      
+      // Calculate total cost if quantity or unit_price changed
+      if (updates.quantity !== undefined || updates.unit_price !== undefined) {
+        const currentPurchase = purchases.find(p => p.id === id);
+        if (currentPurchase) {
+          const quantity = updates.quantity !== undefined ? updates.quantity : currentPurchase.quantity;
+          const unitPrice = updates.unit_price !== undefined ? updates.unit_price : currentPurchase.unit_price;
+          dbUpdates.total_cost = quantity * unitPrice;
+        }
+      }
       
       const updatedPurchase = await updatePurchase(id, dbUpdates);
       setPurchases(prev => prev.map(p => p.id === id ? updatedPurchase : p));
