@@ -41,6 +41,7 @@ import { PurchasesTable } from '@/components/tables/PurchasesTable';
 import { UnitsTable } from '@/components/tables/UnitsTable';
 import { PartnersTable } from '@/components/tables/PartnersTable';
 import { ReportsTab } from '@/components/reports/ReportsTab';
+import { AnalyticsTab } from '@/components/analytics/AnalyticsTab';
 import { BudgetChart } from '@/components/charts/BudgetChart';
 import { exportProjectToExcel } from '@/utils/excelExport';
 
@@ -751,7 +752,42 @@ export default function ConstructionTracker() {
           </TabsContent>
 
           <TabsContent value="analytics">
-            <BudgetChart budgetData={budgetCategories} />
+            <AnalyticsTab 
+              projectId={currentProject.id}
+              purchases={purchases.map(p => ({
+                id: p.id,
+                date: p.date,
+                category: p.category,
+                description: p.description,
+                quantity: p.quantity,
+                unitPrice: p.unit_price,
+                totalCost: p.total_cost,
+                unit: p.unit_id,
+                partner: p.partner_id,
+                receipt: p.receipt_url
+              }))}
+              partners={partners.map(p => ({
+                id: p.id,
+                name: p.name,
+                email: p.email || '',
+                phone: p.phone || '',
+                totalContribution: p.total_contribution,
+                totalSpent: 0, // Calculate this
+                balance: p.total_contribution,
+                status: p.status as 'Active' | 'Inactive'
+              }))}
+              units={units.map(u => ({
+                id: u.id,
+                name: u.name,
+                type: u.type,
+                budget: u.budget,
+                actualCost: purchases.filter(p => p.unit_id === u.id).reduce((sum, p) => sum + p.total_cost, 0),
+                status: u.status as 'Planning' | 'In Progress' | 'Completed' | 'On Hold',
+                completionDate: u.completion_date,
+                partner: u.partner_id
+              }))}
+              totalBudget={currentProject.total_budget}
+            />
           </TabsContent>
         </Tabs>
       </div>
