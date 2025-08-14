@@ -144,6 +144,9 @@ export function AnalyticsTab({ projectId, purchases, partners, units, totalBudge
 
   // Calculate partner spending share
   const getPartnerSpendingData = () => {
+    console.log('Debug - Purchases:', filteredPurchases.slice(0, 2));
+    console.log('Debug - Partners:', partners.slice(0, 2));
+    
     const partnerSpending = partners.map(partner => {
       const partnerPurchases = filteredPurchases.filter(p => p.partner_id === partner.id);
       const totalSpent = partnerPurchases.reduce((sum, p) => sum + p.totalCost, 0);
