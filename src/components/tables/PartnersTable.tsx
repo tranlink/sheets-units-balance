@@ -42,11 +42,10 @@ interface PartnersTableProps {
     name: string;
     email: string;
     phone: string;
-    total_contribution: number;
-    status: string;
-    created_at: string;
-    updated_at: string;
-    project_id: string;
+    totalContribution: number;
+    totalSpent: number;
+    balance: number;
+    status: 'Active' | 'Inactive';
   }) => void;
 }
 

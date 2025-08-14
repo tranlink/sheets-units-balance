@@ -391,20 +391,12 @@ export default function ConstructionTracker() {
   };
 
   const handleEditPartner = (partner: any) => {
-    // Convert table partner format to DBPartner format
-    const dbPartner: DBPartner = {
-      id: partner.id,
-      name: partner.name,
-      email: partner.email,
-      phone: partner.phone,
-      total_contribution: partner.totalContribution,
-      status: partner.status,
-      created_at: partner.created_at || '',
-      updated_at: partner.updated_at || '',
-      project_id: partner.project_id || currentProject.id
-    };
-    setEditingPartner(dbPartner);
-    setShowPartnerForm(true);
+    // Find the original partner from the database
+    const dbPartner = partners.find(p => p.id === partner.id);
+    if (dbPartner) {
+      setEditingPartner(dbPartner);
+      setShowPartnerForm(true);
+    }
   };
 
   const handleUpdateProjectSettings = async (settings: ProjectSettings) => {
