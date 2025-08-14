@@ -458,7 +458,10 @@ export default function ConstructionTracker() {
     const spreadsheetId = prompt('Enter your Google Sheet ID (from the URL):');
     if (!spreadsheetId) return;
     
+    console.log('Starting sync to Google Sheets...', { projectId: currentProject.id, spreadsheetId });
+    
     try {
+      console.log('Calling sync-google-sheets function...');
       const { data, error } = await supabase.functions.invoke('sync-google-sheets', {
         body: {
           projectId: currentProject.id,
@@ -466,25 +469,38 @@ export default function ConstructionTracker() {
         }
       });
 
+      console.log('Function response:', { data, error });
+
       if (error) {
-        console.error('Sync error:', error);
+        console.error('Supabase function error:', error);
         toast({
           title: "Sync Failed",
-          description: "Failed to sync data to Google Sheets. Please try again.",
+          description: `Error: ${error.message || 'Unknown error'}`,
           variant: "destructive",
         });
         return;
       }
 
+      if (data?.error) {
+        console.error('Function returned error:', data.error);
+        toast({
+          title: "Sync Failed",
+          description: `Error: ${data.error}`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      console.log('Sync successful:', data);
       toast({
         title: "Sync Successful",
         description: "Project data has been synced to Google Sheets with separate tabs for Project, Partners, Units, and Purchases.",
       });
     } catch (error) {
-      console.error('Error syncing to Google Sheets:', error);
+      console.error('Unexpected error syncing to Google Sheets:', error);
       toast({
         title: "Sync Failed",
-        description: "Failed to sync data to Google Sheets. Please try again.",
+        description: `Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}`,
         variant: "destructive",
       });
     }
