@@ -60,6 +60,7 @@ interface PurchaseFormProps {
   onSubmit: (purchase: Omit<Purchase, 'id' | 'totalCost'> & { units: string[], distributeEvenly: boolean }) => void;
   units: Array<{ id: string; name: string }>;
   partners: Array<{ id: string; name: string }>;
+  categories: string[];
 }
 
 const categories = [
@@ -80,7 +81,7 @@ const categories = [
   'Other',
 ];
 
-export function PurchaseForm({ open, onOpenChange, onSubmit, units, partners }: PurchaseFormProps) {
+export function PurchaseForm({ open, onOpenChange, onSubmit, units, partners, categories: projectCategories }: PurchaseFormProps) {
   const [selectedUnits, setSelectedUnits] = useState<string[]>([]);
   const [selectAllUnits, setSelectAllUnits] = useState(false);
   
@@ -179,7 +180,7 @@ export function PurchaseForm({ open, onOpenChange, onSubmit, units, partners }: 
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {categories.map((category) => (
+                      {projectCategories.map((category) => (
                         <SelectItem key={category} value={category}>
                           {category}
                         </SelectItem>

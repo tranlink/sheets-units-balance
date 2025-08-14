@@ -16,9 +16,10 @@ interface PurchasesTableProps {
   purchases: Purchase[];
   units: Array<{ id: string; name: string }>;
   partners: Array<{ id: string; name: string }>;
+  categories?: string[];
 }
 
-export function PurchasesTable({ purchases, units, partners }: PurchasesTableProps) {
+export function PurchasesTable({ purchases, units, partners, categories = [] }: PurchasesTableProps) {
   const getUnitName = (unitId?: string) => {
     if (!unitId) return 'General';
     return units.find(u => u.id === unitId)?.name || 'Unknown Unit';
@@ -38,24 +39,32 @@ export function PurchasesTable({ purchases, units, partners }: PurchasesTablePro
   };
 
   const getCategoryColor = (category: string) => {
-    const colors = {
-      'Plumbing': 'bg-blue-100 text-blue-800',
-      'Bathroom': 'bg-purple-100 text-purple-800',
-      'Bedroom': 'bg-green-100 text-green-800',
-      'Kitchen': 'bg-yellow-100 text-yellow-800',
-      'Living Room': 'bg-orange-100 text-orange-800',
-      'Flooring': 'bg-indigo-100 text-indigo-800',
-      'Electrical': 'bg-red-100 text-red-800',
-      'HVAC': 'bg-cyan-100 text-cyan-800',
-      'Roofing': 'bg-pink-100 text-pink-800',
-      'Painting': 'bg-teal-100 text-teal-800',
-      'Doors & Windows': 'bg-lime-100 text-lime-800',
-      'Insulation': 'bg-amber-100 text-amber-800',
-      'Foundation': 'bg-stone-100 text-stone-800',
-      'Exterior': 'bg-sky-100 text-sky-800',
-      'Other': 'bg-gray-100 text-gray-800',
-    };
-    return colors[category as keyof typeof colors] || colors.Other;
+    const baseColors = [
+      'bg-blue-100 text-blue-800',
+      'bg-purple-100 text-purple-800',
+      'bg-green-100 text-green-800',
+      'bg-yellow-100 text-yellow-800',
+      'bg-orange-100 text-orange-800',
+      'bg-indigo-100 text-indigo-800',
+      'bg-red-100 text-red-800',
+      'bg-cyan-100 text-cyan-800',
+      'bg-pink-100 text-pink-800',
+      'bg-teal-100 text-teal-800',
+      'bg-lime-100 text-lime-800',
+      'bg-amber-100 text-amber-800',
+      'bg-stone-100 text-stone-800',
+      'bg-sky-100 text-sky-800',
+      'bg-gray-100 text-gray-800',
+    ];
+    
+    // Get consistent color for each category
+    const index = categories.indexOf(category);
+    if (index !== -1) {
+      return baseColors[index % baseColors.length];
+    }
+    
+    // Fallback for unknown categories
+    return 'bg-gray-100 text-gray-800';
   };
 
   const totalAmount = purchases.reduce((sum, purchase) => sum + purchase.totalCost, 0);

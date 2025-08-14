@@ -36,6 +36,11 @@ export default function ConstructionTracker() {
     description: 'Track your Airbnb construction costs',
     totalBudget: 300000,
     location: '',
+    categories: [
+      'Plumbing', 'Bathroom', 'Bedroom', 'Kitchen', 'Living Room', 'Flooring',
+      'Electrical', 'HVAC', 'Roofing', 'Painting', 'Doors & Windows', 
+      'Insulation', 'Foundation', 'Exterior', 'Other'
+    ],
   });
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
@@ -159,11 +164,7 @@ export default function ConstructionTracker() {
   }, [purchases]);
 
   // Budget categories calculation
-  const budgetCategories: BudgetCategory[] = [
-    'Plumbing', 'Bathroom', 'Bedroom', 'Kitchen', 'Living Room', 'Flooring', 
-    'Electrical', 'HVAC', 'Roofing', 'Painting', 'Doors & Windows', 'Insulation', 
-    'Foundation', 'Exterior', 'Other'
-  ].map(category => {
+  const budgetCategories: BudgetCategory[] = projectSettings.categories.map(category => {
     const spentAmount = purchases
       .filter(p => p.category === category)
       .reduce((sum, p) => sum + p.totalCost, 0);
@@ -455,13 +456,14 @@ export default function ConstructionTracker() {
                 purchases={purchases.slice(0, 5)} 
                 units={units} 
                 partners={partners}
+                categories={projectSettings.categories}
               />
               <UnitsTable units={units} partners={partners} />
             </div>
           </TabsContent>
 
           <TabsContent value="purchases">
-            <PurchasesTable purchases={purchases} units={units} partners={partners} />
+            <PurchasesTable purchases={purchases} units={units} partners={partners} categories={projectSettings.categories} />
           </TabsContent>
 
           <TabsContent value="units">
@@ -489,6 +491,7 @@ export default function ConstructionTracker() {
         onSubmit={handleAddPurchase}
         units={units}
         partners={partners}
+        categories={projectSettings.categories}
       />
 
       <UnitForm
