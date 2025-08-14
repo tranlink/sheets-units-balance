@@ -18,7 +18,8 @@ import {
   FileText,
   UserPlus,
   Settings,
-  LogIn
+  LogIn,
+  Download
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -41,6 +42,7 @@ import { UnitsTable } from '@/components/tables/UnitsTable';
 import { PartnersTable } from '@/components/tables/PartnersTable';
 import { ReportsTab } from '@/components/reports/ReportsTab';
 import { BudgetChart } from '@/components/charts/BudgetChart';
+import { exportProjectToExcel } from '@/utils/excelExport';
 
 // Login Component
 function LoginComponent() {
@@ -428,6 +430,28 @@ export default function ConstructionTracker() {
     await supabase.auth.signOut();
   };
 
+  const handleExportToExcel = () => {
+    try {
+      const filename = exportProjectToExcel(
+        currentProject,
+        partners,
+        units,
+        purchases
+      );
+      toast({
+        title: 'Export Successful',
+        description: `Data exported to ${filename}`,
+      });
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+      toast({
+        title: 'Export Failed',
+        description: 'Failed to export data to Excel. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-EG', {
       style: 'currency',
@@ -504,6 +528,10 @@ export default function ConstructionTracker() {
             <Button onClick={() => setShowPartnerForm(true)} variant="outline">
               <UserPlus className="h-4 w-4 mr-2" />
               Add Partner
+            </Button>
+            <Button onClick={handleExportToExcel} variant="outline">
+              <Download className="h-4 w-4 mr-2" />
+              Export Excel
             </Button>
             <Button onClick={handleLogout} variant="ghost" size="sm">
               Logout
