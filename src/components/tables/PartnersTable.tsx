@@ -265,7 +265,12 @@ export function PartnersTable({ partners, purchases, onEditPartner }: PartnersTa
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => onEditPartner(partner)}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              console.log('Partner edit button clicked for:', partner);
+                              onEditPartner(partner);
+                            }}
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
