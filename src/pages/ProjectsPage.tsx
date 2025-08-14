@@ -39,9 +39,22 @@ const ProjectsPage = () => {
   const handleCreateProject = async (projectData: any) => {
     try {
       console.log('Creating project with data:', projectData);
+      
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+      
+      // Add user_id to project data
+      const projectWithUser = {
+        ...projectData,
+        user_id: user.id
+      };
+      
       const { data, error } = await supabase
         .from('projects')
-        .insert([projectData])
+        .insert([projectWithUser])
         .select()
         .single();
 
@@ -59,7 +72,7 @@ const ProjectsPage = () => {
       console.error('Project creation error:', error);
       toast({
         title: "Error",
-        description: "Failed to create project",
+        description: `Failed to create project: ${error.message}`,
         variant: "destructive",
       });
     }
