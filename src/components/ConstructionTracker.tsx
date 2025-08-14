@@ -110,7 +110,11 @@ function LoginComponent() {
   );
 }
 
-export default function ConstructionTracker() {
+interface ConstructionTrackerProps {
+  projectId?: string;
+}
+
+export default function ConstructionTracker({ projectId }: ConstructionTrackerProps) {
   const { toast } = useToast();
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
@@ -153,23 +157,37 @@ export default function ConstructionTracker() {
 
   const loadProjectData = async () => {
     try {
-      // Get or create default project
-      const projects = await getProjects();
-      let project = projects[0];
+      let project;
       
-      if (!project) {
-        // Create default project
-        project = await createProject({
-          name: 'Construction Cost Tracker',
-          description: 'Track your Airbnb construction costs',
-          total_budget: 300000,
-          location: '',
-          categories: [
-            'Plumbing', 'Bathroom', 'Bedroom', 'Kitchen', 'Living Room', 'Flooring',
-            'Electrical', 'HVAC', 'Roofing', 'Painting', 'Doors & Windows', 
-            'Insulation', 'Foundation', 'Exterior', 'Other'
-          ],
-        });
+      if (projectId) {
+        // Load specific project
+        const { data, error } = await supabase
+          .from('projects')
+          .select('*')
+          .eq('id', projectId)
+          .single();
+          
+        if (error) throw error;
+        project = data;
+      } else {
+        // Get or create default project (for backward compatibility)
+        const projects = await getProjects();
+        project = projects[0];
+        
+        if (!project) {
+          // Create default project
+          project = await createProject({
+            name: 'Construction Cost Tracker',
+            description: 'Track your Airbnb construction costs',
+            total_budget: 300000,
+            location: '',
+            categories: [
+              'Plumbing', 'Bathroom', 'Bedroom', 'Kitchen', 'Living Room', 'Flooring',
+              'Electrical', 'HVAC', 'Roofing', 'Painting', 'Doors & Windows', 
+              'Insulation', 'Foundation', 'Exterior', 'Other'
+            ],
+          });
+        }
       }
       
       setCurrentProject(project);
