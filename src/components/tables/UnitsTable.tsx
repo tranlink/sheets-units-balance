@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Table,
   TableBody,
@@ -10,7 +10,10 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Unit } from '@/types/construction';
+import { Search, Filter } from 'lucide-react';
 
 interface UnitsTableProps {
   units: Unit[];
@@ -18,6 +21,11 @@ interface UnitsTableProps {
 }
 
 export function UnitsTable({ units, partners }: UnitsTableProps) {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [selectedType, setSelectedType] = useState<string>('all');
+  const [selectedPartner, setSelectedPartner] = useState<string>('all');
+
   const getPartnerName = (partnerId?: string) => {
     if (!partnerId) return '-';
     return partners.find(p => p.id === partnerId)?.name || 'Unknown Partner';
@@ -52,19 +60,102 @@ export function UnitsTable({ units, partners }: UnitsTableProps) {
     return 'text-red-600';
   };
 
-  const totalBudget = units.reduce((sum, unit) => sum + unit.budget, 0);
-  const totalActual = units.reduce((sum, unit) => sum + unit.actualCost, 0);
+  const filteredUnits = useMemo(() => {
+    return units.filter((unit) => {
+      const matchesSearch = unit.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          unit.type.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesStatus = selectedStatus === 'all' || unit.status === selectedStatus;
+      const matchesType = selectedType === 'all' || unit.type === selectedType;
+      const matchesPartner = selectedPartner === 'all' || unit.partner === selectedPartner ||
+                           (selectedPartner === 'none' && !unit.partner);
+
+      return matchesSearch && matchesStatus && matchesType && matchesPartner;
+    });
+  }, [units, searchTerm, selectedStatus, selectedType, selectedPartner]);
+
+  const uniqueTypes = [...new Set(units.map(unit => unit.type))];
+
+  const totalBudget = filteredUnits.reduce((sum, unit) => sum + unit.budget, 0);
+  const totalActual = filteredUnits.reduce((sum, unit) => sum + unit.actualCost, 0);
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Construction Units</CardTitle>
         <CardDescription>
-          Project units and their budget status. Total Budget: {formatCurrency(totalBudget)} | 
-          Spent: {formatCurrency(totalActual)}
+          {filteredUnits.length < units.length 
+            ? `Showing ${filteredUnits.length} of ${units.length} units. Filtered Budget: ${formatCurrency(totalBudget)} | Spent: ${formatCurrency(totalActual)}`
+            : `Project units and their budget status. Total Budget: ${formatCurrency(totalBudget)} | Spent: ${formatCurrency(totalActual)}`
+          }
         </CardDescription>
       </CardHeader>
       <CardContent>
+        {/* Filters */}
+        <div className="flex flex-col gap-4 mb-6">
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-medium">Filters</span>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search units..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+
+            {/* Status Filter */}
+            <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+              <SelectTrigger>
+                <SelectValue placeholder="All Statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="Planning">Planning</SelectItem>
+                <SelectItem value="In Progress">In Progress</SelectItem>
+                <SelectItem value="Completed">Completed</SelectItem>
+                <SelectItem value="On Hold">On Hold</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Type Filter */}
+            <Select value={selectedType} onValueChange={setSelectedType}>
+              <SelectTrigger>
+                <SelectValue placeholder="All Types" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                {uniqueTypes.map((type) => (
+                  <SelectItem key={type} value={type}>
+                    {type}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Partner Filter */}
+            <Select value={selectedPartner} onValueChange={setSelectedPartner}>
+              <SelectTrigger>
+                <SelectValue placeholder="All Partners" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Partners</SelectItem>
+                <SelectItem value="none">No Partner</SelectItem>
+                {partners.map((partner) => (
+                  <SelectItem key={partner.id} value={partner.id}>
+                    {partner.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
         <div className="rounded-md border">
           <Table>
             <TableHeader>
@@ -79,14 +170,17 @@ export function UnitsTable({ units, partners }: UnitsTableProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {units.length === 0 ? (
+              {filteredUnits.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                    No units created yet. Click "Create New Unit" to get started.
+                    {units.length === 0 
+                      ? "No units created yet. Click \"Create New Unit\" to get started."
+                      : "No units match your current filters."
+                    }
                   </TableCell>
                 </TableRow>
               ) : (
-                units.map((unit) => {
+                filteredUnits.map((unit) => {
                   const usagePercentage = getBudgetUsagePercentage(unit.actualCost, unit.budget);
                   return (
                     <TableRow key={unit.id}>

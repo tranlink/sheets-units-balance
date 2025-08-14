@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Table,
   TableBody,
@@ -11,8 +11,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Partner, Purchase } from '@/types/construction';
-import { Edit, Mail, Phone } from 'lucide-react';
+import { Edit, Mail, Phone, Search, Filter } from 'lucide-react';
 
 interface PartnersTableProps {
   partners: Array<{
@@ -50,6 +52,9 @@ interface PartnersTableProps {
 }
 
 export function PartnersTable({ partners, purchases, onEditPartner }: PartnersTableProps) {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-EG', {
       style: 'currency',
@@ -90,8 +95,19 @@ export function PartnersTable({ partners, purchases, onEditPartner }: PartnersTa
     return Math.min((spent / contribution) * 100, 100);
   };
 
-  const totalContributions = partners.reduce((sum, partner) => sum + partner.totalContribution, 0);
-  const totalSpent = partners.reduce((sum, partner) => sum + getPartnerSpending(partner.id), 0);
+  const filteredPartners = useMemo(() => {
+    return partners.filter((partner) => {
+      const matchesSearch = partner.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          partner.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          partner.phone.includes(searchTerm);
+      const matchesStatus = selectedStatus === 'all' || partner.status === selectedStatus;
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [partners, searchTerm, selectedStatus]);
+
+  const totalContributions = filteredPartners.reduce((sum, partner) => sum + partner.totalContribution, 0);
+  const totalSpent = filteredPartners.reduce((sum, partner) => sum + getPartnerSpending(partner.id), 0);
 
   return (
     <div className="space-y-6">
@@ -130,10 +146,45 @@ export function PartnersTable({ partners, purchases, onEditPartner }: PartnersTa
         <CardHeader>
           <CardTitle>Partners Overview</CardTitle>
           <CardDescription>
-            Partner contributions, spending, and settlement details
+            {filteredPartners.length < partners.length 
+              ? `Showing ${filteredPartners.length} of ${partners.length} partners`
+              : "Partner contributions, spending, and settlement details"
+            }
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {/* Filters */}
+          <div className="flex flex-col gap-4 mb-6">
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium">Filters</span>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Search */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search partners..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+
+              {/* Status Filter */}
+              <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Statuses" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="Active">Active</SelectItem>
+                  <SelectItem value="Inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
           <div className="rounded-md border">
             <Table>
               <TableHeader>
@@ -149,14 +200,17 @@ export function PartnersTable({ partners, purchases, onEditPartner }: PartnersTa
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {partners.length === 0 ? (
+                {filteredPartners.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                      No partners added yet. Click "Add Partner" to get started.
+                      {partners.length === 0 
+                        ? "No partners added yet. Click \"Add Partner\" to get started."
+                        : "No partners match your current filters."
+                      }
                     </TableCell>
                   </TableRow>
                 ) : (
-                  partners.map((partner) => {
+                  filteredPartners.map((partner) => {
                     const spent = getPartnerSpending(partner.id);
                     const balance = partner.totalContribution - spent;
                     const spendingPercentage = getSpendingPercentage(spent, partner.totalContribution);
